@@ -1,0 +1,7 @@
+O sqtpm é um sistema para recepção via web, compilação e verificação de
+correção de trabalhos de programação.  Permite a recepção de programas em C,
+C++, Fortran e Pascal, e de arquivos PDF, sozinhos ou acompanhando programas.
+
+O sqtpm foi escrito em Perl.
+
+Veja o arquivo sqtpm.pdf.
