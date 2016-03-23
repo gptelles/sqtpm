@@ -1,0 +1,54 @@
+<!--lang:C++-->
+<!--score:100%-->
+<!--tries:6-->
+<b>Trabalho: c++</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 6&ordm;, 20150713231818<br>
+Linguagem: <br>
+Arquivos: <a href="javascript:;" onclick="toggleDiv('dummy.h');">dummy.h</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('dummy.cpp');">dummy.cpp</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('100.cpp');">100.cpp</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="dummy.h" style="display:none" class="src"><b>dummy.h</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c++','dummy.h')">download</a><pre class="prettyprint lang-c" id="C_lang">
+
+class dummy {
+
+  public:
+
+    void conta(int);
+
+};
+</pre></div><div id="dummy.cpp" style="display:none" class="src"><b>dummy.cpp</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c++','dummy.cpp')">download</a><pre class="prettyprint">#include &lt;iostream&gt;
+#include "dummy.h"
+
+using namespace std;
+
+
+void dummy::conta(int j) {
+
+  int i;
+
+  for (i=0; i&lt;=j; i++) {
+    cout &lt;&lt; i &lt;&lt; "\n";
+  }
+}
+</pre></div><div id="100.cpp" style="display:none" class="src"><b>100.cpp</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c++','100.cpp')">download</a><pre class="prettyprint">#include &lt;iostream&gt;
+#include "dummy.h"
+
+using namespace std;
+
+int main() {
+
+  int i,j;
+
+  dummy* D = new dummy();
+
+  cin &gt;&gt; j;
+
+  D-&gt;conta(j);
+
+  return 1;
+}
+</pre></div><p><b>Compilação:</b>&nbsp;bem sucedida.<br>
+<p><b>Execução dos casos-de-teste:</b><p>
+01:&nbsp;saída correta.<br>02:&nbsp;saída correta.<br>03:&nbsp;saída correta.<br><br>Número de casos-de-teste: 3.<br>
+Casos-de-teste bem sucedidos: 3.<br>
+
+<b>Acerto:</b> 100%<br>

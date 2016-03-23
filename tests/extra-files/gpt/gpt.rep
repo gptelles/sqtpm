@@ -1,0 +1,71 @@
+<!--lang:C-->
+<!--score:0%-->
+<!--tries:7-->
+<b>Trabalho: extra-files</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 7&ordm;, 2015/07/14 09:09:54<br>
+Linguagem: <br>
+Arquivo: <a href="javascript:;" onclick="toggleDiv('100-extra.c');">100-extra.c</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="100-extra.c" style="display:none" class="src"><b>100-extra.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','extra-files','100-extra.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+    FILE *F;
+
+    scanf("%d", &j);
+
+    if ((F = fopen("teste.txt", "r"))) {
+	for (i = 0; i &lt;= j; i++)
+	    printf("%d\n", i);
+    } else {
+	for (i = 0; i &lt;= j, i &lt;= 5; i++)
+	    printf("%d\n", i);
+    }
+
+    return 1;
+}
+</pre></div><p><b>Compilação:</b>&nbsp;bem sucedida.<br>
+<p><b>Execução dos casos-de-teste:</b><p>
+01:&nbsp;saída incorreta.<br>02:&nbsp;saída incorreta.<br>03:&nbsp;saída correta.<br><br>Número de casos-de-teste: 3.<br>
+Casos-de-teste bem sucedidos: 1.<br>
+
+<b>Acerto:</b> 0%<br>
+<br><b>Execução do caso 01:</b><p>Entrada:<br><div class="io">3
+
+</div><p>Saída esperada:<br><div class="io">0
+1
+2
+3
+
+</div><p>Saída produzida:<br><div class="io">0
+1
+2
+3
+4
+5
+
+</div><hr><br><b>Execução do caso 02:</b><p>Entrada:<br><div class="io">10
+
+</div><p>Saída esperada:<br><div class="io">0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+</div><p>Saída produzida:<br><div class="io">0
+1
+2
+3
+4
+5
+
+</div><hr>

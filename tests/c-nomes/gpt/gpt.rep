@@ -1,0 +1,54 @@
+<!--lang:C-->
+<!--score:0%-->
+<!--tries:2-->
+<b>Trabalho: c-nomes</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 2&ordm;, 20150713232549<br>
+Linguagem: <br>
+Arquivos: <a href="javascript:;" onclick="toggleDiv('66.c');">66.c</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('33.c');">33.c</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('100-parts-warnings.c');">100-parts-warnings.c</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="66.c" style="display:none" class="src"><b>66.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-nomes','66.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+
+    scanf("%d", &j);
+
+    for (i = 0; i &lt;= j, i &lt;= 3; i++) {
+	printf("%d\n", i);
+    }
+}
+</pre></div><div id="33.c" style="display:none" class="src"><b>33.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-nomes','33.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+
+    scanf("%d", &j);
+
+    for (i = 0; i &lt;= j, i &lt;= 5; i++) {
+	printf("%d\n", i);
+    }
+}
+</pre></div><div id="100-parts-warnings.c" style="display:none" class="src"><b>100-parts-warnings.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-nomes','100-parts-warnings.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+#include "100-parts-warnings.h"
+
+int main()
+{
+
+    int j, w;
+
+    scanf("%d", &j);
+
+    prints(j);
+
+    return 1;
+}
+</pre></div><p><b>Compilação:</b>&nbsp;com erros.<br><div class="io">/usr/bin/make<br>/usr/bin/gcc    -c -o 100-parts-warnings.o 100-parts-warnings.c
+100-parts-warnings.c:2:32: fatal error: 100-parts-warnings.h: No such file or directory
+compilation terminated.
+make: *** [100-parts-warnings.o] Error 1
+</div><p>
+<b>Acerto:</b> 0%<br>

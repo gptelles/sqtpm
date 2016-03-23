@@ -1,0 +1,6 @@
+languages = C C++
+deadline = 2015/05/18 23:59:59
+penalty = 33.3
+backup = on
+showcases = 01 02 03 05
+description = enunciado.html

@@ -1,0 +1,7 @@
+#deadline = 2014/10/24 23:59:59
+backup = on
+penalty = 100
+showcases = 01-conta-tres
+languages = C C++
+description = enunciado.html
+

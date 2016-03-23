@@ -1,0 +1,31 @@
+<!--lang:C-->
+<!--score:100%-->
+<!--tries:4-->
+<b>Trabalho: atrasado</b><br>
+Data limite para envio: 2015/07/12 23:59:59<br>
+Penalidade por dia de atraso: 50%<br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 4&ordm;, 2015/07/14 00:10:00<br>
+Linguagem: <br>
+Arquivo: <a href="javascript:;" onclick="toggleDiv('100.c');">100.c</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="100.c" style="display:none" class="src"><b>100.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','atrasado','100.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+
+    scanf("%d", &j);
+
+    for (i = 0; i &lt;= j; i++) {
+	printf("%d\n", i);
+    }
+
+    return 1;
+}
+</pre></div><p><b>Compilação:</b>&nbsp;bem sucedida.<br>
+<p><b>Execução dos casos-de-teste:</b><p>
+01:&nbsp;saída correta.<br>02:&nbsp;saída correta.<br>03:&nbsp;saída correta.<br><br>Número de casos-de-teste: 3.<br>
+Casos-de-teste bem sucedidos: 3.<br>
+
+<b>Acerto:</b> 100%<br>

@@ -1,0 +1,30 @@
+<!--lang:Pascal-->
+<!--score:0%-->
+<!--tries:1-->
+<b>Trabalho: pascal</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 1&ordm;, 20150713234121<br>
+Linguagem: <br>
+Arquivo: <a href="javascript:;" onclick="toggleDiv('100.pas');">100.pas</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="100.pas" style="display:none" class="src"><b>100.pas</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','pascal','100.pas')">download</a><pre class="prettyprint">
+program HelloWorld;
+
+var
+   n,i : integer;
+
+begin
+
+   readln(n);
+   
+   for i:=0 to n do
+      writeln(i);
+
+end.
+   </pre></div><p><b>Compilação:</b>&nbsp;com erros.<br><div class="io">/usr/local/bin/gpc -Wa,--32 -B /usr/lib32 -Wall -O2 -Wa,--32 -B /usr/lib32 --executable-file-name=elf --automake 100.pas<br>/usr/bin/ld: cannot find crt1.o: No such file or directory
+/usr/bin/ld: cannot find crti.o: No such file or directory
+/usr/bin/ld: cannot find -lm
+/usr/bin/ld: cannot find -lc
+/usr/bin/ld: cannot find crtn.o: No such file or directory
+collect2: ld returned 1 exit status
+</div><p>
+<b>Acerto:</b> 0%<br>

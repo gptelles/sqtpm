@@ -1,0 +1,6 @@
+#!/bin/sh
+
+cd /home/www || exit 0
+DATE=`/bin/date +%d%b%y-%H%M%S`
+tar -cvzf sqtpm.backup.${DATE}.tgz sqtpm
+su gpt -c "scp -P 5330 sqtpm.backup.${DATE}.tgz gpt@shy.ic.unicamp.br:~/backup"

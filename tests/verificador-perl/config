@@ -1,0 +1,5 @@
+backup = on
+showcases = 01 02 03
+languages = C C++
+#verifier = /usr/bin/perl @verif-conta-correta-incorreta-formato.pl
+verifier = /usr/bin/perl @verif-conta.pl

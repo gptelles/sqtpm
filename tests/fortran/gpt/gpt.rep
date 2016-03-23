@@ -1,0 +1,65 @@
+<!--lang:Fortran-->
+<!--score:0%-->
+<!--tries:1-->
+<b>Trabalho: fortran</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 1&ordm;, 20150713234002<br>
+Linguagem: <br>
+Arquivo: <a href="javascript:;" onclick="toggleDiv('100.f');">100.f</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="100.f" style="display:none" class="src"><b>100.f</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','fortran','100.f')">download</a><pre class="prettyprint">      program main
+      integer i, n
+ 
+      read(*,*) n
+      do 10 i = 0, n
+         write(*,1000) i
+ 10   continue
+ 1000 format (I0,I0)
+      end
+
+
+</pre></div><p><b>Compilação:</b>&nbsp;bem sucedida.<br>
+<p><b>Execução dos casos-de-teste:</b><p>
+01:&nbsp;erro de execução (-1).<br><div class="io">./elf: error while loading shared libraries: libgfortran.so.3: cannot open shared object file: No such file or directory
+</div>
+02:&nbsp;erro de execução (-1).<br><div class="io">./elf: error while loading shared libraries: libgfortran.so.3: cannot open shared object file: No such file or directory
+</div>
+03:&nbsp;erro de execução (-1).<br><div class="io">./elf: error while loading shared libraries: libgfortran.so.3: cannot open shared object file: No such file or directory
+</div>
+<br>Número de casos-de-teste: 3.<br>
+Casos-de-teste bem sucedidos: 0.<br>
+
+<b>Acerto:</b> 0%<br>
+<br><b>Execução do caso 01:</b><p>Entrada:<br><div class="io">3
+
+</div><p>Saída esperada:<br><div class="io">0
+1
+2
+3
+
+</div><p>Saída produzida:<br><div class="io">
+</div><hr><br><b>Execução do caso 02:</b><p>Entrada:<br><div class="io">10
+
+</div><p>Saída esperada:<br><div class="io">0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+</div><p>Saída produzida:<br><div class="io">
+</div><hr><br><b>Execução do caso 03:</b><p>Entrada:<br><div class="io">5
+
+</div><p>Saída esperada:<br><div class="io">0
+1
+2
+3
+4
+5
+
+</div><p>Saída produzida:<br><div class="io">
+</div><hr>

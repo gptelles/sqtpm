@@ -1,0 +1,46 @@
+<!--lang:C-->
+<!--score:0%-->
+<!--tries:3-->
+<b>Trabalho: c-pdfs-nomes</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 3&ordm;, 2015/08/07 13:05:27<br>
+Linguagem: C<br>
+Arquivos: <a href="javascript:;" onclick="toggleDiv('100.c');">100.c</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('0-aloca-muita.c');">0-aloca-muita.c</a>&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-pdfs-nomes','a.pdf');">a.pdf</a>&nbsp; <a href="javascript:;" onclick="wrap('dwn','c-pdfs-nomes','b.pdf');">b.pdf</a>&nbsp; <link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="100.c" style="display:none" class="src"><b>100.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-pdfs-nomes','100.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+
+    scanf("%d", &j);
+
+    for (i = 0; i &lt;= j; i++) {
+	printf("%d\n", i);
+    }
+
+    return 1;
+}
+</pre></div><div id="0-aloca-muita.c" style="display:none" class="src"><b>0-aloca-muita.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-pdfs-nomes','0-aloca-muita.c')">download</a><pre class="prettyprint lang-c" id="C_lang">
+int main()
+{
+
+    int *pi;
+
+    while (1) {
+
+	pi = (int *) malloc(sizeof(int));
+    }
+}
+</pre></div><p><b>Compilação:</b>&nbsp;com erros.<br><div class="io">/usr/bin/make<br>/usr/bin/gcc    -c -o 0-aloca-muita.o 0-aloca-muita.c
+/usr/bin/gcc    -c -o 100.o 100.c
+/usr/bin/gcc -Wall -O3 -o elf 0-aloca-muita.o 100.o
+0-aloca-muita.c: In function 'main':
+0-aloca-muita.c:8:17: warning: incompatible implicit declaration of built-in function 'malloc' [enabled by default]
+100.o: In function `main':
+100.c:(.text+0x0): multiple definition of `main'
+0-aloca-muita.o:0-aloca-muita.c:(.text+0x0): first defined here
+collect2: error: ld returned 1 exit status
+make: *** [elf] Error 1
+</div><p>
+<b>Acerto:</b> 0%<br>

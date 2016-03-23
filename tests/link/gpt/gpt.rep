@@ -1,0 +1,26 @@
+<!--lang:C-->
+<!--score:0%-->
+<!--tries:13-->
+<b>Trabalho: c</b><br>
+gpt: envios sem restrições de linguagem e prazo.<br>
+Número máximo de envios: 25<br>
+Este envio: 13&ordm;, 2015/07/22 16:23:16<br>
+Linguagem: C<br>
+Arquivo: <a href="javascript:;" onclick="toggleDiv('33.c');">33.c</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="33.c" style="display:none" class="src"><b>33.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c','33.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int main()
+{
+
+    int i, j;
+
+    scanf("%d", &j);
+
+    for (i = 0; i &lt;= j, i &lt;= 5; i++) {
+	printf("%d\n", i);
+    }
+}
+</pre></div><p><b>Compilação:</b>&nbsp;com erros.<br><div class="io">/usr/bin/make<br>/usr/bin/gccc    -c -o 33.o 33.c
+make: /usr/bin/gccc: Command not found
+make: *** [33.o] Error 127
+</div><p>
+<b>Acerto:</b> 0%<br>

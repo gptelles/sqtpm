@@ -1,0 +1,46 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          sqtpm-vbox
+# Required-Start:    $local_fs $syslog 
+# Required-Stop:     $local_fs $syslog 
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Interactive:     true
+# Short-Description: Start/stop sqtpm VM
+### END INIT INFO
+
+
+. /lib/lsb/init-functions
+
+test -f /etc/default/rcS && . /etc/default/rcS
+
+vbm="sudo -u www-data /usr/bin/vboxmanage"
+
+st () {
+  sudo -u www-data /usr/bin/vboxmanage showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d " "
+}
+
+case $1 in
+	start)
+		log_daemon_msg "Starting sqtpm VM" "sqtpm-vbox "
+		$vbm startvm sqtpm --type headless
+                log_end_msg 0
+	;;
+	stop)
+	        log_daemon_msg "Stopping sqtpm VM" "sqtpm-vbox "
+
+		if [[ `st`  == "paused" ]]; then 
+		  $vbm controlvm sqtpm resume
+		  sleep 1
+		fi
+
+		if [[ `st` == "running" ]]; then 
+	          $vbm controlvm sqtpm acpipowerbutton
+		  sleep 3
+		  while [[ `st` != "powered" ]]; do 
+		    sleep 1
+		  done
+		fi
+                log_end_msg 0
+	;;
+esac
