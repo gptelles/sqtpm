@@ -1,12 +1,12 @@
 <!--lang:C-->
-<!--score:0%-->
-<!--tries:4-->
-<b>Trabalho: c-unico</b><br>
-gpt: envios sem restrições de linguagem e prazo.<br>
+<!--score:33%-->
+<!--tries:1-->
+<b>Trabalho: c</b><br>
+Data limite para envio: 2017-12-12 18:00:00<br>
 Número máximo de envios: 25<br>
-Este envio: 4&ordm;, 2015/07/17 12:10:41<br>
+Este envio: 1&ordm;, 2016/03/24 23:07:02<br>
 Linguagem: C<br>
-Arquivo: <a href="javascript:;" onclick="toggleDiv('33.c');">33.c</a>&nbsp;<link href="http://zap.ic.unicamp.br/devel/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://zap.ic.unicamp.br/devel/google-code-prettify/run_prettify.js"></script><div id="33.c" style="display:none" class="src"><b>33.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c-unico','33.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+Arquivo: <a href="javascript:;" onclick="toggleDiv('33.c');">33.c</a>&nbsp;<link href="http://bug.ic.unicamp.br/sqtpm/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://bug.ic.unicamp.br/sqtpm/google-code-prettify/run_prettify.js"></script><div id="33.c" style="display:none" class="src"><b>33.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c','33.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
 
 int main()
 {
@@ -24,7 +24,7 @@ int main()
 01:&nbsp;saída incorreta.<br>02:&nbsp;saída incorreta.<br>03:&nbsp;saída correta.<br><br>Número de casos-de-teste: 3.<br>
 Casos-de-teste bem sucedidos: 1.<br>
 
-<b>Acerto:</b> 0%<br>
+<b>Acerto:</b> 33%<br>
 <br><b>Execução do caso 01:</b><p>Entrada:<br><div class="io">3
 
 </div><p>Saída esperada:<br><div class="io">0

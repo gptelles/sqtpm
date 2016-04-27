@@ -1,0 +1,51 @@
+<!--lang:C-->
+<!--score:100%-->
+<!--tries:2-->
+<b>Trabalho: c</b><br>
+Data limite para envio: 2017-12-12 18:00:00<br>
+Número máximo de envios: 25<br>
+Este envio: 2&ordm;, 2016/03/24 23:07:24<br>
+Linguagem: C<br>
+Arquivos: <a href="javascript:;" onclick="toggleDiv('lib.h');">lib.h</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('lib.c');">lib.c</a>&nbsp;<a href="javascript:;" onclick="toggleDiv('100-parts.c');">100-parts.c</a>&nbsp;<link href="http://bug.ic.unicamp.br/sqtpm/google-code-prettify/prettify.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="http://bug.ic.unicamp.br/sqtpm/google-code-prettify/run_prettify.js"></script><div id="lib.h" style="display:none" class="src"><b>lib.h</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c','lib.h')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+
+int pr(int i);
+void prints(int j);
+</pre></div><div id="lib.c" style="display:none" class="src"><b>lib.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c','lib.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include "lib.h"
+
+
+int pr(int i)
+{
+
+    printf("%d ", i);
+}
+
+
+void prints(int j)
+{
+
+    int i;
+
+    for (i = 0; i &lt;= j; i++) {
+	printf("%d\n", i);
+    }
+}
+</pre></div><div id="100-parts.c" style="display:none" class="src"><b>100-parts.c</b>&nbsp;&nbsp;<a href="javascript:;" onclick="wrap('dwn','c','100-parts.c')">download</a><pre class="prettyprint lang-c" id="C_lang">#include &lt;stdio.h&gt;
+#include "lib.h"
+
+int main()
+{
+
+    int j;
+
+    scanf("%d", &j);
+
+    prints(j);
+
+    return 1;
+}
+</pre></div><p><b>Compilação:</b>&nbsp;bem sucedida.<br>
+<p><b>Execução dos casos-de-teste:</b><p>
+01:&nbsp;saída correta.<br>02:&nbsp;saída correta.<br>03:&nbsp;saída correta.<br><br>Número de casos-de-teste: 3.<br>
+Casos-de-teste bem sucedidos: 3.<br>
+
+<b>Acerto:</b> 100%<br>

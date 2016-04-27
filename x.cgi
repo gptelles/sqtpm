@@ -12,8 +12,6 @@ use CGI::Session::Driver::file;
 $CGI::POST_MAX = 1000000;
 $CGI::Session::Driver::file::FileName = 'sqtpm-sess-%s';  
 $sessiond = '/tmp';
-umask(0007);
-
 
 use Cwd;
 use Time::Local;
@@ -112,9 +110,6 @@ else {
   elsif ($action eq 'hlp') {
     show_help(param('arg1').'.html');
   }
-  elsif ($action eq 'moss') {
-    moss($session->param('uid'),param('arg1'));
-  }
   else {
     home(0);
   }
@@ -194,8 +189,7 @@ sub home {
     $tab .= '<th class="grid">Data limite</th>';
     $tab .= '<th class="grid">Estado</th>';
     ($utype eq 'prof') && ($tab .= '<th class="grid">Grupos</th>');
-    ($utype eq 'capivara') && ($tab .= '<th class="grid">Último envio</th></tr>');
-    ($utype eq 'prof') && ($tab .= '<th class="grid">Moss</th></tr>');
+    $tab .= '<th class="grid">Último envio</th></tr>';
     
     @open = ();
     @open_langs = ();
@@ -242,18 +236,6 @@ sub home {
 	  push(@open,$assign[$i]);
 	  push(@open_langs,$cfg{languages});
 	}
-
-	# Current score:
-	%rep = get_rep_data($uid,$assign[$i]);
-      
-	if (exists($rep{score})) {
-	  $tab .= '<td class="grid"><a href="javascript:;"' . 
-	    "onclick=\"wrap('rep','$assign[$i]');\">$rep{score}</a>";
-	}
-	else {
-	  $tab .= '<td class="grid">não houve';
-	}
-	$tab .= '</td>';
       }
       else {
 	push(@open,$assign[$i]);
@@ -273,15 +255,21 @@ sub home {
 	  $groups{$group} = 1;
 	}
 	$tab .= '</td>';
-
-	# Moss launcher:
-	$tab .= "<td class=\"grid\"><a href=\"javascript:;\"" . 
-	  " onclick=\"wrap('moss','$assign[$i]');\">comparar</a></td>";
       }
-   
+      
+      # Current score:
+      %rep = get_rep_data($uid,$assign[$i]);
+      
+      if (exists($rep{score})) {
+	$tab .= '<td class="grid"><a href="javascript:;"' . 
+	  "onclick=\"wrap('rep','$assign[$i]');\">$rep{score}</a>";
+      }
+      else {
+	$tab .= '<td class="grid">não houve';
+      }
+      $tab .= '</td>';
       $tab .= '</tr>';
-     }
-
+    }
     $tab .= '</table></div>';
     
     # Score table links for prof:
@@ -428,7 +416,7 @@ sub show_statement {
   (!%sys_cfg) && (%sys_cfg = load_keys_values('sqtpm.cfg'));
   %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
-  # If the assignment is not open yet for students, this is strange:
+  # If the assignment is not open yet for students or TAs, this is strange:
   ($utype ne 'prof' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
     block_user($uid,$upassf,"O prazo para enviar $assign não começou, bloqueado.");
 
@@ -559,10 +547,8 @@ sub download_file {
 ################################################################################
 sub show_scores_table {
 
-  my ($assign, $curr, $d, $date, $first, $i, $k, $last, $m, $n,
-      $passf, $show, $show100, $size, $uid, $upassf, $user, $usersuf,
-      $utype, $y, %cfg, %freq, %freq100, %langs, %rep, %scores, %users,
-      @aux, @f, @grades, @langs, @users);
+  my ($DIR, $amnt, $i, $n, $passf, $uid, $upassf, $user, $usersuf,
+      $utype, %rep, %scores, %show, %show100, @amnts, @aux, @users);
 
   $uid = $session->param('uid');
   $utype = $session->param('utype');
@@ -608,22 +594,25 @@ sub show_scores_table {
     }
   }
 
-  @langs = keys(%langs);
-
   # Produce a report with a table with tuples {user,score}  
-  print '<div class="f95">'.
-    '<table border=0><tr><td valign=\'top\'>' .
-    '<table class="grid">' . 
+  print '<div class="f95">'; 
+  print '<table border=0><tr><td>';
+  print '<table class="grid">' . 
+
     "<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
 
   $show = 0;
   $show100 = 0;
+
+  # Will be used by the histogram below. 
+  %users = ();
 
   foreach $user (@users) {
     print "<tr align=center>" . 
       "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$scores{$user}</td></tr>";
     ($scores{$user} ne '-') && ($show++);
     ($scores{$user} =~ '>100%</a>$') && ($show100++);
+    $users{$user} = 1;
   }
 
   $n = @users;
@@ -634,85 +623,26 @@ sub show_scores_table {
   printf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show,$n>0 ? 100*$show/$n : 0);
   print '<tr align=center><td class="grid"><b>100</b><br><b>%</b></td>';
   printf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show100,$show>0 ? 100*$show100/$show : 0);
-  print '</table>';
+  print '</table></div>';
 
 
-  @langs == 1 && print "<p>Todos em $langs[0].";
 
-  print '</td><td valign=\'top\'>';
+  @keys = keys(%langs);
 
-  # Submission histogram per day:
-  %users = map { $_ => 1 } @users; # used by wanted_hist
-  @grades = ();                    # modified by wanted_hist, holds the grades.    
-  find(\&wanted_hist,"./$assign");
-
-  if (@grades) {
-
-   %freq = ();
-   %freq100 = ();
-
-    for ($i=0; $i<@grades; $i+=2) {
-      if (exists($freq{"$grades[$i]"})) {
-	$freq{"$grades[$i]"}++;
-      }
-      else {
-	$freq{"$grades[$i]"} = 1;
-	$freq100{"$grades[$i]"} = 0;
-      }
-
-      if ($grades[$i+1] eq '100%') {
-	$freq100{"$grades[$i]"}++;
-      }
-    }
-    
-    @f = sort { $a cmp $b } keys(%freq);
-    $first = $f[0];
-    $last = $f[$#f];
-    
-    %cfg = (%sys_cfg, load_keys_values("$assign/config"));
-    
-    if (exists($cfg{startup})) {
-      $cfg{startup} =~ /(.*) .*/;
-      $first gt $1 && ($first = $1);
-    }
-    
-    if (exists($cfg{deadline})) {
-      $cfg{deadline} =~ /(.*) .*/;
-      $last lt $1 && ($last = $1);
-    }
-    
-    ($y, $m, $d) = split(/\//,$first);
-    $first = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
-    ($y, $m, $d) = split(/\//,$last);
-    $last = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
-    
-    $curr = $first;
-    while ($curr le $last) {
-      
-      @aux = localtime($curr);
-      $date = sprintf("%04.0f/%02.0f/%02.0f",$aux[5]+1900,$aux[4]+1,$aux[3]);
-      
-      if (!exists($freq{$date})) {
-	$freq{$date} = 0;
-	$freq100{$date} = 0;
-      }
-      $curr += 24 * 60 * 60;
-    }
-
-    $size = keys %freq;
-    histogram("$assign/histogram.png",$size<30?600:$size*25,360,\%freq,\%freq100);
-    print "<img src=\"$assign/histogram.png\" style=\"border:0;padding: 0px 0px 0px 20px\">";
-    print '</td></tr></table></div>';
+  if (@keys == 0) {
+    print "<p>Nenhuma submissão.";
   }
+  elsif (@keys == 1) {
+    print "<p>Todos os trabalhos em $keys[0].</p>";
+  }
+  else {
 
-  if (@langs > 1) {
+
     # Produce a report with a table with tuples {user,score} for each language:  
-    print "<p>&nbsp;</p><b>Acertos para $passf em $assign por linguagem:</b>";
-    print '<table border=0><tr>';
-
-    for $k (@langs) {
-      print "<td valign='top'><b>$k:</b>" .
-	'<div class="f95"><table class="grid">' . 
+    for $k (@keys) {
+      print "<p><b>$k:</b></p>" .
+	'<div class="f95">' .
+	'<table class="grid">' . 
 	"<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
 
       $show = 0;
@@ -734,9 +664,44 @@ sub show_scores_table {
       print '<tr align=center><td class="grid"><b>100</b><br><b>%</b></td>';
       printf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show100,$show>0 ? 100*$show100/$show : 0);
       print '</table></div>';
-      print '</td><td></td>';
     }
   }
+  print '</td><td valign=\'top\'>';
+
+  # Submission histogram per day:
+  @V = ();
+  find(\&get_rep_date,"./$assign");
+
+
+  %freq = ();
+  %freq100 = ();
+
+  for ($i=0; $i<@V; $i+=2) {
+
+    if (exists($freq{"$V[$i]"})) {
+      $freq{"$V[$i]"}++;
+    }
+    else {
+      $freq{"$V[$i]"} = 1;
+    }
+
+    if ($V[$i+1] eq '100%') {
+      if (exists($freq100{$V[$i]})) {
+	$freq100{$V[$i]}++;
+      }
+      else {
+	$freq100{$V[$i]} = 1;
+      }
+    }
+  }
+
+  if (@V>0) {
+    make_histogram("$assign/histogram.png",600,360,\%freq,\%freq100);
+    print "<img src=\"$assign/histogram.png\" style=\"border:0;padding: 0px 0px 0px 20px\">";
+  }
+
+  print '</td></tr></table></div>';
+
 
   print_end_html();
 }
@@ -940,6 +905,7 @@ sub submit_assignment {
     abort($uid,$assign,"Você não pode enviar $assign mais uma vez.");
 
   # Create a directory:
+  umask(0007);
   $userd = "$assign/_${uid}_tmp_";
   mkdir($userd) || abort($uid,$assign,"submit : mkdir $userd : $!");
  
@@ -1369,96 +1335,23 @@ sub submit_assignment {
   # Write log:  
   wlog($uid,$assign,$score);
 
-  if ($utype eq 'capivara') {
-    # Update home screen:
-    $scr = $session->param('screen');
+  # Update home screen:
+  $scr = $session->param('screen');
 
-    $i = index($scr,">$assign<");
-    $i += index(substr($scr,$i),'<td ') + 3;
-    ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
-    ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
-    $i += index(substr($scr,$i),'<td ') + 3;
-    $i += index(substr($scr,$i),'<td ');
+  $i = index($scr,">$assign<");
+  $i += index(substr($scr,$i),'<td ') + 3;
+  ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
+  ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
+  $i += index(substr($scr,$i),'<td ') + 3;
+  $i += index(substr($scr,$i),'<td ');
 
-    $j = index(substr($scr,$i),'<tr ');
-    ($j == -1) && ($j = index(substr($scr,$i),'</table>'));
-    $j += $i;
+  $j = index(substr($scr,$i),'<tr ');
+  ($j == -1) && ($j = index(substr($scr,$i),'</table>'));
+  $j += $i;
   
-    $session->param('screen',substr($scr,0,$i) . 
-	       "<td class=\"grid\"><a href=\"javascript:;\" onclick=\"wrap('rep','$assign');\">" . 
+  $session->param('screen',substr($scr,0,$i) . 
+		  "<td class=\"grid\"><a href=\"javascript:;\" onclick=\"wrap('rep','$assign');\">" . 
 		  "$score</a></td>" . substr($scr,$j));
-  }
-}
-
-
-
-################################################################################
-sub moss {
-
-  my ($assign, $cmd, $compare, $i, $recursive, $run_age, $st, $uid, @out);
-
-  $uid = shift;
-  $assign = shift;
-  $recursive = shift;
-
-  %sys_cfg = load_keys_values('sqtpm.cfg');
-
-  (!$recursive) && print_start_html();
-  
-  @sources = ();
-  find(\&wanted_moss,"./$assign");
-
-  (@sources < 2) && abort($uid,$assign,"Deve haver pelo menos dois arquivos para comparar.");
-
-  (-f "$assign/moss.lock") && abort($uid,$assign,"Comparando $assign, aguarde.");
-
-  $compare = 1;
-  if (-f "$assign/moss.run") {
-
-    $run_age = (stat "$assign/moss.run")[9];
-
-    # Check last moss run's age and whether there is a newer source:
-    if ((time() - $run_age) / (60*60*24) < 14) {
-      $compare = 0;
-
-      for ($i=0; $i<@sources; $i++) {
-	if ($run_age < (stat $sources[$i])[9]) {
-	  $compare = 1;
-	  last;
-	}
-      }
-    }
-  }
-
-  if ($compare) {
-    open(LOCK,">>$assign/moss.lock") || abort($uid,$assign,"Erro ao criar $assign/moss.lock : $!.");
-    flock(LOCK,LOCK_EX);
-      
-    $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -m $sys_cfg{'moss-m'} " .
-      "-d @sources >$assign/moss.run 2>$assign/moss.err";
-    system($cmd);
-    $st = $? >> 8;
-
-    flock(LOCK,LOCK_UN);
-    close(LOCK);
-    unlink("$assign/moss.lock");
-
-    $st && abort($uid,$assign,"Erro ao executar $cmd.");
-  }
-  
-  # Get url from moss.run and redirect:
-  open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"Erro ao abrir $assign/moss.run : $!.");
-  @out = <OUT>;
-  close(OUT);
-  
-  if ($out[-1] !~ /^http:/) {
-    unlink("$assign/moss.run");
-    moss($uid,$assign,1);
-  }
-
-  print "<meta http-equiv=\"refresh\" content=\"0; url=$out[-1]\" />";
-
-  print_end_html();
 }
 
 
@@ -1574,27 +1467,14 @@ sub block_user {
 }
 
 
-
 ################################################################################
-# A wanted function to find sources for moss.  It uses @sources from
-# an outer scope.
+# get_rep_date($user, $assignment)
+# 
+# Gets submition date from an assignment report.
 
-sub wanted_moss {
-  -f && 
-    !($File::Find::name =~ /\/backup\//) && 
-    (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/) && 
-    (push(@sources,"$File::Find::name"));
-}
-
-
-
-################################################################################
-# A wanted function to collect data for the histogram, using %users
-# and @grades from an outer scope.
-
-sub wanted_hist {
+sub get_rep_date {
  
-  my ($REPORT, $file, $user, @aux);
+  my ($REPORT, $file, @aux);
 
   /\.rep$/ && do {
     $file = $_;
@@ -1605,7 +1485,7 @@ sub wanted_hist {
       return;
     }
 
-    open($REPORT,'<',"$file") || abort("","","wanted : unable to open : $!");
+    open($REPORT,'<',"$file") || print "<br>fail $!";
    
     while (<$REPORT>) {
       /<!--score:([^-]*)-->/ && do {
@@ -1615,96 +1495,79 @@ sub wanted_hist {
       /^Este envio/ && do {
 	@aux = split(/ /);
 	close($REPORT);
-	push(@grades,$aux[3]);
-	push(@grades,$score);
+	push(@V,$aux[3]);
+	push(@V,$score);
+	#print "<p>&nbsp;&nbsp;$aux[3]";
 	return;
       }
     }
-
-    close($REPORT);
   };
 
+  close($REPORT);
   return;
 }
 
 
 
-################################################################################
-# histogram($png_file, $png_width, $png_height, \%data1, \%data2)
-# 
-# A histogram for two data series.  Each data series is a hash with
-# keys -> value.  The data series must have the same set of keys.  The
-# values in the second data series should be smaller than those in the
-# first.
-#
-# This function was written in 1999 or 2000 for a single series and
-# adapted for two series.
 
-sub histogram {
+sub make_histogram {
 
-  my ($aux, $aux1, $bar_separation, $black, $blue, $darkgreen,
-      $data1, $data2, $filled_x, $filled_y, $free_axis_end, $gray, $i, $im,
-      $l, $max_x, $max_y, $pairs_total, $png_file, $png_height, $png_width,
-      $purple, $red, $tfh, $tfw, $up_text, $value, $white, $x_margin,
-      $x_scale, $x_text_area, $x_zero, $y_margin, $y_scale, $y_text_area,
-      $y_zero, @x, @y);
+  my $png_file = shift;
+  my $png_width = shift;
+  my $png_height = shift;
+  my $data_ref = shift;
+  my $data_ref2 = shift;
 
-  $png_file = shift;
-  $png_width = shift;
-  $png_height = shift;
-  $data1 = shift;
-  $data2 = shift;
+  my $im = new GD::Image($png_width, $png_height);
 
-  $im = new GD::Image($png_width, $png_height);
+  my $white = $im->colorAllocate(255,255,255);
+  my $black = $im->colorAllocate(0,0,0);
+  my $red = $im->colorAllocate(180,0,0);
+  my $darkgreen = $im->colorAllocate(0,180,0);
+  my $blue = $im->colorAllocate(0,0,220);
+  my $gray = $im->colorAllocate(240,240,240);
+  #$purple = $im->colorAllocate(146,50,172);
 
-  $white = $im->colorAllocate(255,255,255);
-  $black = $im->colorAllocate(0,0,0);
-  $red = $im->colorAllocate(180,0,0);
-  $darkgreen = $im->colorAllocate(0,180,0);
-  $blue = $im->colorAllocate(0,0,220);
-  $gray = $im->colorAllocate(225,225,225);
-  $purple = $im->colorAllocate(146,50,172);
-
-  ($tfw, $tfh) = (gdSmallFont->width, gdSmallFont->height);
+  my ($tfw, $tfh) = (gdSmallFont->width, gdSmallFont->height);
   
-  # Draw a border:
+  # Draws a border:
   $im->rectangle(0, 0, $png_width-1, $png_height-1, $black);
   $im->fill(1, 1, $gray);
 
-  ### Find maximum in y:
-  $max_y = 0;
-  $max_x = 0; 
-  $pairs_total = 0;
-  foreach $value (keys(%$data1)) {
+  ### Finds maximum in y:
+  my $max_y_value = 0;
+  my $max_x_value = 0; 
+  my $pairs_total = 0;
+  foreach $value (keys(%$data_ref)){
     $pairs_total++;
     $l = length($value);
-    if ($max_x < $l) {
-      $max_x = $l;
+    if ($max_x_value < $l) {
+      $max_x_value = $l;
     }
-    if ($max_y < $$data1{$value}) {
-      $max_y = $$data1{$value};
+    if ($max_y_value < $$data_ref{$value}) {
+      $max_y_value = $$data_ref{$value};
     }
   }
 
-  ### Set margins and such:
-  $x_margin = 10;
-  $y_margin = 10;
-  $free_axis_end = 5;
-  $y_text_area = 4+(length("$max_y")*$tfw);
-  $x_text_area = 4+($max_x*$tfw);
+  ### Sets margins and such:
+  my $x_margin = 10;
+  my $y_margin = 10;
+  my $free_axis_end = int(0.02 * $png_width);
+  my $y_text_area = 4+(length("$max_y_value")*$tfw);
+  my $x_text_area = 4+(length("$max_x_value")*$tfw);
 
-  ### Eval x and y scales:
-  $x_scale = ($png_width - (2*$x_margin) - $y_text_area
+  ### Evals x and y scales:
+  my $x_scale = ($png_width - (2*$x_margin) - $y_text_area
 	      - (2*$free_axis_end)) / $pairs_total;
 
   if ($x_scale > 40) {
     $x_scale = 40;
   }
 
-  $up_text = 0;
-  if ($x_scale < $max_x*1.2*$tfw) {
+  my $up_text = 0;
+  if($x_scale < "$max_x_value"*1.2*$tfw){
     $up_text = 1;
-    $x_text_area = $max_x*1.2*$tfw;
+    $x_text_area = $max_x_value*1.2*$tfw;
   }
   else{
     $up_text = 0;
@@ -1712,64 +1575,71 @@ sub histogram {
   }
 
   $y_scale = ($png_height-(2*$y_margin)-(2*$free_axis_end)-
-	      $x_text_area) / $max_y;
+	      $x_text_area) / $max_y_value;
     
 
-  ### Print y axis:
-  $x_zero = $x_margin + $free_axis_end + $y_text_area;
-  $y_zero = $png_height - $y_margin - $free_axis_end - $x_text_area;
+  ### Prints y axis:
+  my $x_zero = $x_margin + $free_axis_end + $y_text_area;
+  my $y_zero = $png_height - $y_margin - $free_axis_end - $x_text_area;
 
-  $im->line($x_zero, 
-	    $y_margin, 
-	    $x_zero,
-	    $png_height - $y_margin, 
-	    $black);
+  $im->rectangle($x_zero, 
+		 $y_margin, 
+		 $x_zero,
+		 $png_height - $y_margin, 
+		 $black);
 
-
-  ### Print x axis:
-  $im->line($x_margin, 
+  ### Prints x axis:
+  $im->rectangle($x_margin, 
 		 $y_zero,
 		 $png_width - $x_margin, 
 		 $y_zero,
 		 $black);
 
+  ### Prints bars:
+  my $bar_separation = 7;
+  my $i = 1;
+  my $value = 0;
+  foreach $value (sort {$a cmp $b} keys(%$data_ref)) {
 
-  ### Print y values:
-  @y = values(%$data1);
-  push(@y,values(%$data2));
-  $filled_y = 0;
-  $aux1 = length("$max_y");
-  foreach $value (sort {$b <=> $a} @y) {
-
-    if ($value > 0) {
-      $im->rectangle($x_zero - 3, 
-		     $y_zero-$value*$y_scale, 
-		     $x_zero, 
-		     $y_zero-$value*$y_scale, 
-		     $black);
-      
-      if ($y_zero-($value*$y_scale)-$tfh > $filled_y && 
-	  $y_zero-($value*$y_scale)-$tfh < $y_zero - 1.5*$tfh) {
-	
-	$aux = sprintf("%${aux1}i",$value);
-	$im->string(gdSmallFont, $x_margin + $free_axis_end, 
-		    $y_zero-$value*$y_scale-($tfh/2), 
-		    "$aux",$blue);
-	$filled_y = $y_zero-$value*$y_scale;
-      }
-    }
+    $im->filledRectangle($x_zero + $bar_separation + (($i-1)*$x_scale),
+		   $y_zero,
+		   $x_zero + ($i*$x_scale),
+		   $y_zero - ($$data_ref{$value}*$y_scale),
+		   $black);
+    $i++;
   }
 
-  $bar_separation = 7;
+  ### Prints y values:
+  my @y_values = values(%$data_ref);
+  push(@y_values,values(%$data_ref2));
+  my $filled_y = 0;
+  my $aux1 = length("$max_y_value");
+  foreach $value (sort {$b <=> $a} @y_values) {
+    $im->rectangle($x_zero - 3, 
+		   $y_zero-$value*$y_scale, 
+		   $x_zero, 
+		   $y_zero-$value*$y_scale, 
+		   $black);
+    
+    if($y_zero-($value*$y_scale)-$tfh > $filled_y && 
+       $y_zero-($value*$y_scale)-$tfh < $y_zero - 1.5*$tfh){
+
+      $aux = sprintf("%${aux1}i",$value);
+      $im->string(gdSmallFont, $x_margin + $free_axis_end, 
+		  $y_zero-$value*$y_scale-($tfh/2), 
+		  "$aux",$blue);
+      $filled_y = $y_zero-$value*$y_scale;
+    }
+  }
  
-  ### Print x values:
-  @x = sort {$a cmp $b} keys(%$data1);
-  $filled_x = $x_zero;
-  $aux1 = $max_x;
+  ### Prints x values:
+  my @x_values = sort {$a cmp $b} keys(%$data_ref);
+  my $filled_x = $x_zero;
+  $aux1 = length("$max_x_value");
   $i = 1;
 
-  if (!$up_text) {
-    foreach $value (@x) {
+  if(!$up_text){
+    foreach $value (@x_values){
       $im->string(gdSmallFont, 
 		  $x_zero+($bar_separation/2)+(($i-1)*$x_scale)+($x_scale/2)
 		  -(length("$value")*$tfw/2), 
@@ -1780,7 +1650,8 @@ sub histogram {
     }
   }
   else{
-    foreach $value (@x) {
+    foreach $value (@x_values){
+
       $aux = sprintf("%${aux1}s",$value);
       $im->stringUp(gdSmallFont, 
 		    $x_zero+($bar_separation/2)+(($i-1)*$x_scale)+($x_scale/2)
@@ -1792,35 +1663,28 @@ sub histogram {
     }
   }
 
-  ### Print bars for data1:
-  $i = 1;
-  $value = 0;
-  foreach $value (sort {$a cmp $b} keys(%$data1)) {
-    $im->filledRectangle($x_zero + $bar_separation + (($i-1)*$x_scale),
-			 $y_zero,
-			 $x_zero + ($i*$x_scale),
-			 $y_zero - ($$data1{$value}*$y_scale),
-			 $black);
-    $i++;
-  }
 
-  ### Print bars for data2:
-  $i = 1;
-  $value = 0;
-  foreach $value (sort {$a cmp $b} keys(%$data2)) {
+  ### Prints bars:
+  my $bar_separation = 7;
+  my $i = 1;
+  my $value = 0;
+  foreach $value (sort {$a cmp $b} keys(%$data_ref2)) {
 
-    $$data2{$value} > 0 && 
     $im->filledRectangle($x_zero + $bar_separation + (($i-1)*$x_scale)+1,
-			 $y_zero - 1,
-			 $x_zero + ($i*$x_scale)-1,
-			 $y_zero - ($$data2{$value}*$y_scale) +1,
-			 $darkgreen);
+		   $y_zero-1,
+		   $x_zero + ($i*$x_scale)-1,
+		   $y_zero - ($$data_ref2{$value}*$y_scale),
+		   $darkgreen);
     $i++;
   }
+
+
 
 
   ### Drop to the file:
-  open(PNG, ">$png_file") or die("Unable to open $png_file");
+  unlink($png_file);
+  open(PNG, ">$png_file") or 
+    die("Unable to open $png_file");
   print PNG $im->png;
   close(PNG);
 }

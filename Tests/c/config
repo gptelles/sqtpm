@@ -1,3 +1,6 @@
-languages = C
+deadline = 2017-12-12 18:00:00
+backup = on
 showcases = 01-conta-tres 02-conta-dez 03-conta-cinco
+languages = C
 description = enunciado.html
+scoring = proportional
