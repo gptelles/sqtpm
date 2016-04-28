@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 # This file is part of sqtpm v6.
-# Copyright 2003-2015 Guilherme P. Telles.
+# Copyright 2003-2016 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
 use CGI qw(:standard);
@@ -12,8 +12,6 @@ use CGI::Session::Driver::file;
 $CGI::POST_MAX = 1000000;
 $CGI::Session::Driver::file::FileName = 'sqtpm-sess-%s';  
 $sessiond = '/tmp';
-umask(0007);
-
 
 use Cwd;
 use Time::Local;
@@ -24,6 +22,8 @@ use File::Find;
 use GD;
 
 use sqtpm;
+
+umask(0007);
 
 # Some globals:
 %sys_cfg = ();
@@ -47,7 +47,7 @@ if (!defined($sid)) {
     $pwd = param('pwd');
 
     # Sleep for a while, so trying to break a password will take longer:
-    sleep(1);
+    sleep(2);
 
     ($utype,$upassf) = authenticate($uid,$pwd);
 
@@ -244,7 +244,7 @@ sub home {
 	}
 
 	# Current score:
-	%rep = get_rep_data($uid,$assign[$i]);
+	%rep = get_rep_data("$assign[$i]/$uid/$uid.rep");
       
 	if (exists($rep{score})) {
 	  $tab .= '<td class="grid"><a href="javascript:;"' . 
@@ -369,7 +369,7 @@ sub home {
     $session->param('screen',$scr);
   }
 
-  print_start_html($first_login,'envio');
+  print_start_html($first_login,'envio',0);
   print $scr;
   print_end_html();
 }
@@ -398,7 +398,7 @@ sub show_subm_report {
   (!-e $reportf) && block_user($uid,$upassf,"Não existe arquivo $reportf, bloqueado.");
 
   # Print report:
-  print_start_html(0,'saida');
+  print_start_html(0,'saida',0);
 
   open($FILE,'<',$reportf) || abort($uid,$assign,"show_subm_report : open $reportf : $!");
   while (<$FILE>) {
@@ -546,7 +546,7 @@ sub download_file {
   # Download:
   print "Content-Type:application/x-download\nContent-Disposition:attachment;filename=$file\n\n";
 
-  open($FILE,'<',$file) || abort();
+  open($FILE,'<',$file) || abort($uid,$assign,"download_file : open $file : $!");
   binmode $FILE;
   while (<$FILE>) {
     print $_;
@@ -561,8 +561,8 @@ sub show_scores_table {
 
   my ($assign, $curr, $d, $date, $first, $i, $k, $last, $m, $n,
       $passf, $show, $show100, $size, $uid, $upassf, $user, $usersuf,
-      $utype, $y, %cfg, %freq, %freq100, %langs, %rep, %scores, %users,
-      @aux, @f, @grades, @langs, @users);
+      $utype, $y, %cfg, %freq, %freq100, %langs, %rep, %scores, @aux,
+      @f, @langs, @users);
 
   $uid = $session->param('uid');
   $utype = $session->param('utype');
@@ -594,7 +594,7 @@ sub show_scores_table {
     $usersuf = $user;
     $usersuf =~ s/^[\*@]?//;
 
-    %rep = get_rep_data($usersuf,$assign);
+    %rep = get_rep_data("$assign/$usersuf/$usersuf.rep");
 
     if (exists($rep{score})) { 
       $scores{$user} = '<a href="javascript:;"' . 
@@ -644,7 +644,7 @@ sub show_scores_table {
   # Submission histogram per day:
   %users = map { $_ => 1 } @users; # used by wanted_hist
   @grades = ();                    # modified by wanted_hist, holds the grades.    
-  find(\&wanted_hist,"./$assign");
+  find(\&wanted_hist,"$assign");
 
   if (@grades) {
 
@@ -760,7 +760,7 @@ sub show_all_scores_table {
   print_start_html();
   
   # Get a list of assignments for the user:
-  opendir($DIR,'.') || abort($uid,'','home : opendir root : $!).');
+  opendir($DIR,'.') || abort($uid,'','all_scores : opendir root : $!).');
   @amnts = sort(grep { -d $_ && !/^\./ && -f "$_/config" && -l "$_/$passf" } readdir($DIR));
   close($DIR);
   
@@ -784,7 +784,7 @@ sub show_all_scores_table {
       $usersuf = $user;
       $usersuf =~ s/^[\*@]?//;
 
-      %rep = get_rep_data($usersuf,$amnts[$i]);
+      %rep = get_rep_data("$amnts[$i]/$usersuf/$usersuf.rep");
 
       if ($rep{tries} > 0) {
 	$rep{score} =~ s/%//;
@@ -799,7 +799,8 @@ sub show_all_scores_table {
   }
 
   # Print a report with a table with tuples {user,score,score,...} and summaries:
-  print '<div style="overflow-x:scroll"><div class="f95"><table class="grid"><tr><th class="grid">Usuário</th>';
+  print '<div style="overflow-x:scroll"><div class="f95">' .
+    '<table class="grid"><tr><th class="grid">Usuário</th>';
 
   %show = ();
   %show100 = ();
@@ -861,7 +862,7 @@ sub submit_assignment {
   @uploads = param('source');
   @uploads = grep(/\S+/,@uploads);
 
-  print_start_html(0,'saida');
+  print_start_html(0,'saida',1);
 
   # Check assign:
   (!$assign) && abort($uid,'',"Selecione um trabalho.");
@@ -930,7 +931,7 @@ sub submit_assignment {
   # Read tries from the existing report file or set it to 0:
   $tries = 0;
   if (-e "$assign/$uid/$uid.rep") {
-    %rep = get_rep_data($uid,$assign);
+    %rep = get_rep_data("$assign/$uid/$uid.rep");
     $tries = $rep{tries};
   }
   $tries++;
@@ -1070,7 +1071,7 @@ sub submit_assignment {
 
       (!exists($cfg{'gcc-args'})) && ($cfg{'gcc-args'} = '');
       open($MAKE,'>',"$userd/Makefile") || 
-	abort($uid,$assign,"submit : w $userd/Makefile : $!");
+	abort($uid,$assign,"submit : write $userd/Makefile : $!");
 
       print $MAKE "CC=$cfg{gcc}\n" .
 	'SRC=$(wildcard *.c)' . "\n" .
@@ -1087,7 +1088,7 @@ sub submit_assignment {
 
       (!exists($cfg{'g++-args'})) && ($cfg{'g++-args'} = '');
       open($MAKE,'>',"$userd/Makefile") || 
-	abort($uid,$assign,"submit : w $userd/Makefile : $!");
+	abort($uid,$assign,"submit : write $userd/Makefile : $!");
 
       print $MAKE "CC=$cfg{'g++'}\n" .
 	'SRC=$(wildcard *.cpp)' . "\n" .
@@ -1319,9 +1320,10 @@ sub submit_assignment {
   }
 
   # Add data to parse easily later:
-  $rep = "<!--lang:$language-->\n" . "<!--score:$score-->\n" . "<!--tries:$tries-->\n" . $rep;
+  $rep = "<!--lang:$language-->\n" . "<!--score:$score-->\n" . 
+    "<!--tries:$tries-->\n" . "<!--at:$now-->\n" . $rep;
 
-  open($REPORT,'>',"$userd/$uid.rep") || abort($uid,$assign,"submit: w $userd/$uid.rep : $!");
+  open($REPORT,'>',"$userd/$uid.rep") || abort($uid,$assign,"submit : write $userd/$uid.rep : $!");
   print $REPORT $rep;
   close($REPORT);
 
@@ -1345,18 +1347,19 @@ sub submit_assignment {
   $tries--;
   if ($tries > 0) {
     if ($cfg{backup} eq 'on') {
+
       $date = format_epoch((stat("$assign/$uid/$uid.rep"))[9]);
       $date =~ s/[:\/]//g;
       $date =~ s/ /-/g;
       
       $backupd = "$assign/backup";
       if (!-d $backupd) {
-	(-e $backupd) && abort($uid,$assign,"submit: $backupd is a file");
-	mkdir($backupd) || abort($uid,$assign,"submit: mkdir $backupd : $!");
+	(-e $backupd) && abort($uid,$assign,"submit : $backupd is a file");
+	mkdir($backupd) || abort($uid,$assign,"submit : mkdir $backupd : $!");
       }
       
       $newd = "$backupd/$uid.$tries.$date";
-      rename("$assign/$uid",$newd) || abort($uid,$assign,"submit: mv $assign/$uid $newd : $!");
+      rename("$assign/$uid",$newd) || abort($uid,$assign,"submit : mv $assign/$uid $newd : $!");
     }
     else {
       unlink glob "$assign/$uid/*";
@@ -1364,7 +1367,7 @@ sub submit_assignment {
     }
   }
 
-  rename($userd,"$assign/$uid") || abort($uid,$assign,"submit: mv $userd $assign/$uid : $!");
+  rename($userd,"$assign/$uid") || abort($uid,$assign,"submit : mv '$userd' '$assign/$uid' : $!");
 
   # Write log:  
   wlog($uid,$assign,$score);
@@ -1431,7 +1434,7 @@ sub moss {
   }
 
   if ($compare) {
-    open(LOCK,">>$assign/moss.lock") || abort($uid,$assign,"Erro ao criar $assign/moss.lock : $!.");
+    open(LOCK,">>$assign/moss.lock") || abort($uid,$assign,"moss : write $assign/moss.lock : $!");
     flock(LOCK,LOCK_EX);
       
     $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -m $sys_cfg{'moss-m'} " .
@@ -1443,11 +1446,11 @@ sub moss {
     close(LOCK);
     unlink("$assign/moss.lock");
 
-    $st && abort($uid,$assign,"Erro ao executar $cmd.");
+    $st && abort($uid,$assign,"moss : system $cmd : $!.");
   }
   
   # Get url from moss.run and redirect:
-  open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"Erro ao abrir $assign/moss.run : $!.");
+  open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"moss : open $assign/moss.run : $!");
   @out = <OUT>;
   close(OUT);
   
@@ -1464,15 +1467,17 @@ sub moss {
 
 
 ################################################################################
-# print_start_html($first_login,$help)
+# print_start_html($first_login,$help,$back)
 #
 # first_login: 1 if the session is starting, 0 if it existed already.
 # help: the help html file.
+# back link: 0 or null is back to previous page, 1 is forced back to sqtpm.cgi.
 
 sub print_start_html {
 
   my $first_login = shift;
   my $help = shift;
+  my $back = shift;
 
   if ($first_login) {
     print header(-cookie=>$cgi->cookie(CGISESSID => $session->id));
@@ -1491,7 +1496,7 @@ sub print_start_html {
   if ($help && $help eq 'envio') {
     print '<a href="javascript:;" onclick="wrap(\'out\');">sair</a>';
   }
-  elsif ($help && $help eq 'saida') {
+  elsif ($back) {
     print '<a href="sqtpm.cgi">voltar</a>';
   }
   else {
@@ -1594,34 +1599,15 @@ sub wanted_moss {
 
 sub wanted_hist {
  
-  my ($REPORT, $file, $user, @aux);
-
   /\.rep$/ && do {
-    $file = $_;
-    $file =~ /^(\w+)\./;
-    $user = $1;
+    my $file = $_;
+    /^(\w+)\./;
 
-    if (!exists($users{$user}) && !exists($users{"*$user"})) {
-      return;
-    }
+    !exists($users{$1}) && !exists($users{"*$1"}) && return;
 
-    open($REPORT,'<',"$file") || abort("","","wanted : unable to open : $!");
-   
-    while (<$REPORT>) {
-      /<!--score:([^-]*)-->/ && do {
-	$score = $1;
-      };
-
-      /^Este envio/ && do {
-	@aux = split(/ /);
-	close($REPORT);
-	push(@grades,$aux[3]);
-	push(@grades,$score);
-	return;
-      }
-    }
-
-    close($REPORT);
+    %rep = get_rep_data($file);
+    push(@grades,(split(/ /,$rep{at}))[0]);
+    push(@grades,$rep{score});
   };
 
   return;
@@ -1820,7 +1806,7 @@ sub histogram {
 
 
   ### Drop to the file:
-  open(PNG, ">$png_file") or die("Unable to open $png_file");
+  open(PNG, ">$png_file") || die("Unable to open $png_file");
   print PNG $im->png;
   close(PNG);
 }

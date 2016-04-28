@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 # This file is part of sqtpm v6.
-# Copyright 2003-2015 Guilherme P. Telles.
+# Copyright 2003-2016 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
 use CGI qw(:standard);

@@ -1,5 +1,5 @@
 # This file is part of sqtpm v6.
-# Copyright 2003-2015 Guilherme P. Telles.
+# Copyright 2003-2016 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
 package sqtpm;
@@ -36,8 +36,8 @@ use MIME::Base64 qw();
 ######################################################################
 # abort($uid, $assignment, $message)
 #
-# Prints message, removes $assignment/_$uid_tmp_ and its contents,
-# writes to log and exits.
+# Print message, removes $assignment/_$uid_tmp_ and its contents,
+# write to log and exits.
 
 sub abort {
 
@@ -62,7 +62,7 @@ sub abort {
 ################################################################################
 # abort_pwd($uid, $message)
 #
-# Prints message, writes to log and exits.
+# Print message, write to log and exits.
 
 sub abort_pwd {
 
@@ -81,7 +81,7 @@ sub abort_pwd {
 ################################################################################
 # abort_login($uid, $message)
 #
-# Prints an html error page with the message, writes to log and exits.
+# Print an html error page with the message, write to log and exit.
 
 sub abort_login {
 
@@ -105,7 +105,7 @@ sub abort_login {
 ################################################################################
 # wlog($uid, $assignment, $message)
 #
-# Writes an entry to sqtpm.log.
+# Write an entry to sqtpm.log.
 
 sub wlog {
 
@@ -137,11 +137,11 @@ sub wlog {
 ################################################################################
 # load($uid, $assignment, $filename, $is_pre, $limit)
 #
-# Loads a limited number of characters from a file into a buffer.
+# Load a limited number of characters from a file into a buffer.
 #
 # filename  The name of the source file. 
 # is_pre  If true, substitutes < by &lt; and > by &gt;.  May be undef.
-# limit  The maximum number of characters to write, If undef or 0, prints the whole source file.
+# limit  The maximum number of characters to write, If undef or 0, print the whole source file.
 #
 # If an error occurs while opening the file then invokes abort.
 
@@ -181,8 +181,8 @@ sub load {
 ################################################################################
 # print_html($path, $file)
 #
-# Prints an html file, encoding image files and printing them too.
-# If an error occurs while opening the file then invokes abort.
+# Print an html file, encoding image files and printing them too.
+# If an error occurs while opening the file then invoke abort.
 
 sub print_html {
 
@@ -223,7 +223,7 @@ sub print_html {
 ################################################################################
 # load_keys_values($file, $separator)
 #
-# Reads a file with lines in format key=value and returns a hash with
+# Read a file with lines in format key=value and returns a hash with
 # pairs key->value.  If a separator is given, then it is used instead
 # of '='.  If # occurs in a line, line contents from # to the end of
 # the line is discarded.  Keys an values are trimmed for blanks on
@@ -274,9 +274,9 @@ sub load_keys_values {
 ################################################################################
 # elapsed_days($date)
 #
-# Returns the integral number of days elapsed from date.
+# Return the integral number of days elapsed from date.
 #
-# Returns > 0 if date is past, < 0 if date is future or 0 if date
+# Return > 0 if date is past, < 0 if date is future or 0 if date
 # matches current time.  Any fraction of a day counts -1 or +1.
 # Expected date format is aaaa/mm/dd hh:mm:ss
 
@@ -304,7 +304,7 @@ sub elapsed_days {
 ################################################################################
 # format_epoch($seconds)
 #
-# Formats seconds from epoch as aaaa/mm/dd hh:mm:ss.
+# Format seconds from epoch as aaaa/mm/dd hh:mm:ss.
 
 sub format_epoch {
 
@@ -319,7 +319,7 @@ sub format_epoch {
 ################################################################################
 # (user_type,pass_file) = authenticate($user_id, $typed_password)
 #
-# Returns the user type and the name of the pass file that contains that user.
+# Return the user type and the name of the pass file that contains that user.
 # The returning user type may be '', 'capivara' or 'prof'.
 
 sub authenticate {
@@ -388,24 +388,23 @@ sub authenticate {
 
 
 ################################################################################
-# get_rep_data($user, $assignment)
+# get_rep_data($file)
 # 
-# Gets data on an assignment report, returning a hash with the
-# following fields: tries, score, lang.  Tries is set to 0 if the
-# report file does not exist.
+# Get data on an assignment report, returning a hash with the
+# following fields: tries, score, lang, at (yyyy-mm-dd hh:mm:ss).
+# Tries is set to 0 if the report file does not exist.
 
 sub get_rep_data {
  
-  my ($REPORT, $assign, $uid, %get);
+  my ($REPORT, $file, %get);
  
-  $uid = shift;
-  $assign = shift;
+  $file = shift;
 
   %get = ();
   $get{tries} = 0;
 
-  open($REPORT,'<',"$assign/$uid/$uid.rep") || return %get;
-    
+  open($REPORT,'<',"$file") || (return %get);
+
   $_ = <$REPORT>;
   /<!--lang:([\w\+]*)-->/;
   $get{lang} = $1;
@@ -417,6 +416,10 @@ sub get_rep_data {
   $_ = <$REPORT>;
   /<!--tries:([\d]*)-->/;
   $get{tries} = $1;
+
+  $_ = <$REPORT>;
+  /<!--at:([\d\:\/ ]*)-->/;
+  $get{at} = $1;
 
   close($REPORT);
 
