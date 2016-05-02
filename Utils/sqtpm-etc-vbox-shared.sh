@@ -11,18 +11,22 @@ cputime=$3
 virtmem=$4
 stkmem=$5
 
-# If the vm is paused, tries to resume it:
+# If the vm is paused, try to resume it:
 st=`vboxmanage showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
+if [ $? -ne 0 ]; then
+  exit 129;
+fi
+
 if [[ "$st"  == "paused" ]]; then 
   vboxmanage controlvm sqtpm resume
   sleep 3
   st=`vboxmanage showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
   if [[ "$st" == "paused" ]]; then 
-    exit 1
+    exit 129
   fi
 fi
 
-# Creates a temp dir:
+# Create a temp dir:
 date=`/bin/date +%d%b%y-%H%M%S`
 dir="$date-$$"
 tmpd="$sharedd/$dir"
@@ -33,8 +37,8 @@ mkdir $tmpd
 cd $assign &>/dev/null
 
 for inputf in *.in; do
-  # Copies each input file, the elf and extra files to tmpd, invokes
-  # execution in the VM, and then moves resulting files to the user
+  # Copy each input file, the elf and extra files to tmpd, invoke
+  # execution in the VM, and then move resulting files to the user
   # directory in the assignment:
 
   \cp $inputf $tmpd

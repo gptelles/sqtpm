@@ -4,10 +4,11 @@
 # Copyright 2003-2016 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
-use CGI qw(:standard);
+use CGI qw(:cgi Link start_html);
 use CGI::Session qw/-ip-match/;
 use CGI::Carp 'fatalsToBrowser';
 use CGI::Session::Driver::file; 
+use LWP::Simple qw(head);
 
 $CGI::POST_MAX = 1000000;
 $CGI::Session::Driver::file::FileName = 'sqtpm-sess-%s';  
@@ -1022,7 +1023,7 @@ sub submit_assignment {
     $rep .= "<div id=\"$sources[$i]\" style=\"display:none\" class=\"src\">" . 
       "<b>$sources[$i]</b>&nbsp;&nbsp;" . 
       "<a href=\"javascript:;\" onclick=\"wrap('dwn','$assign','$sources[$i]')\">download</a>";
-    
+
     $source = "$userd/$sources[$i]";
     if ($sources[$i] =~ /\.c$/ || $sources[$i] =~ /\.h$/) {
       $rep .= '<pre class="prettyprint lang-c" id="C_lang">';
@@ -1177,6 +1178,7 @@ sub submit_assignment {
 	$casei = 1;
 
 	foreach $case (@test_cases) {
+
 	  $case_out = "$assign/$case.out";
 	  $exec_st = "$userd/$case.run.st";
 	  $exec_out = "$userd/$case.run.out";
@@ -1292,6 +1294,7 @@ sub submit_assignment {
 
 	  for ($i=0; $i<@show; $i++) {
 	    if ($failed{$show[$i]}) {
+
 	      $rep .= sprintf("<br><b>Execução do caso %.02d:</b><p>",$failed{$show[$i]});
 
 	      $rep .= 'Entrada:<br><div class="io">';
@@ -1413,32 +1416,35 @@ sub moss {
 
   (@sources < 2) && abort($uid,$assign,"Deve haver pelo menos dois arquivos para comparar.");
 
-  (-f "$assign/moss.lock") && abort($uid,$assign,"Comparando $assign, aguarde.");
-
-  $compare = 1;
+  $url = '';
   if (-f "$assign/moss.run") {
 
-    $run_age = (stat "$assign/moss.run")[9];
+    # Check if last moss run is up and whether there is a newer source:
+    open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"moss : open $assign/moss.run : $!");
+    @out = <OUT>;
+    close(OUT);
+    $url = $out[-1];
 
-    # Check last moss run's age and whether there is a newer source:
-    if ((time() - $run_age) / (60*60*24) < 14) {
-      $compare = 0;
-
+    if ($url =~ /^http:/ && head($url)) {
+      $run_age = (stat "$assign/moss.run")[9];
       for ($i=0; $i<@sources; $i++) {
 	if ($run_age < (stat $sources[$i])[9]) {
-	  $compare = 1;
+	  $url = '';
 	  last;
 	}
       }
     }
+    else {
+      $url = '';
+    }
   }
 
-  if ($compare) {
-    open(LOCK,">>$assign/moss.lock") || abort($uid,$assign,"moss : write $assign/moss.lock : $!");
-    flock(LOCK,LOCK_EX);
+  if ($url eq '') {
+    open(LOCK,'>',"$assign/moss.lock") || abort($uid,$assign,"moss : open $assign/moss.lock : $!");
+    flock(LOCK,LOCK_EX|LOCK_NB) || abort($uid,$assign,"Comparando $assign, aguarde.");
       
     $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -m $sys_cfg{'moss-m'} " .
-      "-d @sources >$assign/moss.run 2>$assign/moss.err";
+      "-d @sources 1>$assign/moss.run 2>$assign/moss.err";
     system($cmd);
     $st = $? >> 8;
 
@@ -1447,20 +1453,21 @@ sub moss {
     unlink("$assign/moss.lock");
 
     $st && abort($uid,$assign,"moss : system $cmd : $!.");
+
+    open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"moss : open $assign/moss.run : $!");
+    @out = <OUT>;
+    close(OUT);
+    $url = $out[-1];
+
+    if ($url !~ /^http:/) {
+      unlink("$assign/moss.run");
+      moss($uid,$assign,1);
+      abort($uid,$assign,"A execução do Moss falhou.");
+    }
   }
   
-  # Get url from moss.run and redirect:
-  open(OUT,"<","$assign/moss.run") || abort($uid,$assign,"moss : open $assign/moss.run : $!");
-  @out = <OUT>;
-  close(OUT);
-  
-  if ($out[-1] !~ /^http:/) {
-    unlink("$assign/moss.run");
-    moss($uid,$assign,1);
-  }
-
-  print "<meta http-equiv=\"refresh\" content=\"0; url=$out[-1]\" />";
-
+  # Redirect:
+  print "<meta http-equiv=\"refresh\" content=\"0; url=$url\" />";
   print_end_html();
 }
 

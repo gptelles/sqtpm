@@ -74,6 +74,6 @@ div.f95 {position:relative; width:95%; margin:0px;}
 	  top:0px;
 	  margin-left:100px;
 	  padding:15px;
-	  z-index:2;
+	  z-index:-2;
 	  border:0px solid blue;
 }
