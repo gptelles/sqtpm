@@ -612,7 +612,7 @@ sub show_scores_table {
   @langs = keys(%langs);
 
   # Produce a report with a table with tuples {user,score}  
-  print '<div class="f95">'.
+  print '<div class="f95" style="overflow-x:scroll">'.
     '<table border=0><tr><td valign=\'top\'>' .
     '<table class="grid">' . 
     "<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
@@ -1401,7 +1401,7 @@ sub submit_assignment {
 ################################################################################
 sub moss {
 
-  my ($assign, $cmd, $compare, $i, $recursive, $run_age, $st, $uid, @out);
+  my ($assign, $cmd, $url, $i, $recursive, $run_age, $st, $uid, @out);
 
   $uid = shift;
   $assign = shift;
@@ -1425,7 +1425,7 @@ sub moss {
     close(OUT);
     $url = $out[-1];
 
-    if ($url =~ /^http:/ && head($url)) {
+    if (head("$url")) {
       $run_age = (stat "$assign/moss.run")[9];
       for ($i=0; $i<@sources; $i++) {
 	if ($run_age < (stat $sources[$i])[9]) {
