@@ -47,9 +47,6 @@ if (!defined($sid)) {
     $uid = param('uid');
     $pwd = param('pwd');
 
-    # Sleep for a while, so trying to break a password will take longer:
-    sleep(2);
-
     ($utype,$upassf) = authenticate($uid,$pwd);
 
     # authenticate() will accept if the typed and stored passwords are
@@ -66,6 +63,8 @@ if (!defined($sid)) {
       home(1);
     }
     else {
+      # Sleep for a while, so trying to break a password will take longer:
+      sleep(2);
       abort_login($uid,'Dados incorretos.');
     }
   }
