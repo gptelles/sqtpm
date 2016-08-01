@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# VM-side test-cases execution dispatcher for VirtualBox with shared directory.
+# VM-side test-case execution dispatcher for VirtualBox with shared directory.
 # This file is part of sqtpm.
 
 sharedd=/media/sf_aux

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Host-side test-cases execution dispatcher for VirtualBox with shared directory.
+# Host-side test-cases execution dispatcher for VirtualBox with shared
+# directory.
 # This file is part of sqtpm.
 
 sharedd='/mnt/aux'
@@ -11,12 +12,17 @@ cputime=$3
 virtmem=$4
 stkmem=$5
 
-# If the vm is paused, try to resume it:
-st=`vboxmanage showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
-if [ $? -ne 0 ]; then
+st=`vboxmanage showvminfo sqtpm 2>dev/null` 
+if [[ $? -ne 0 ]]; then
   exit 129;
 fi
 
+st=`echo "$st" | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
+if [[ "$st"  == "powered" ]]; then 
+  exit 129;
+fi
+
+# If the vm is paused, try to resume it:
 if [[ "$st"  == "paused" ]]; then 
   vboxmanage controlvm sqtpm resume
   sleep 3
@@ -47,7 +53,7 @@ for inputf in *.in; do
     \cp -r extra-files/* $tmpd
   fi
 
-  vboxmanage guestcontrol sqtpm execute --image /home/sqtpm/vbox-etc-shared.sh --username sqtpm --password senha --wait-exit --wait-stdout --wait-stderr -- $dir $inputf $cputime $virtmem $stkmem
+  vboxmanage guestcontrol sqtpm --username sqtpm --password senha run --exe /home/sqtpm/vbox-etc-shared.sh --wait-stdout --wait-stderr -- vbox-etc-shared.sh $dir $inputf $cputime $virtmem $stkmem
 
   tag=${inputf/.in/}
   \mv $tmpd/$tag.run.{out,err,st} $userd

@@ -675,12 +675,13 @@ sub show_scores_table {
       $cfg{startup} =~ /(.*) .*/;
       $first gt $1 && ($first = $1);
     }
-    
+
     if (exists($cfg{deadline})) {
       $cfg{deadline} =~ /(.*) .*/;
       $last lt $1 && ($last = $1);
+      $last =~ s/-/\//g;
     }
-    
+
     ($y, $m, $d) = split(/\//,$first);
     $first = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
     ($y, $m, $d) = split(/\//,$last);

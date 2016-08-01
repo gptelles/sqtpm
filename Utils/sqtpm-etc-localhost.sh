@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# Execution dispatcher for localhost.
+# Execution dispatcher at localhost.
 # This file is part of sqtpm.
-
-
 
 uid=$1
 assign=$2

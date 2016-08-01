@@ -6,6 +6,7 @@ if [ "$1" ]; then
   cd $1
   find . -type f -exec chmod 660 {} \;
 else
+  chmod -R a-s *
   chgrp -R www-data *
   find . -type d -exec chmod 2770 {} \;
   find . -type f -exec chmod 660 {} \;
@@ -13,5 +14,6 @@ else
   chmod 750 *.cgi *.sh
   chmod 640 sqtpm.pm sqtpm.cfg sqtpm.js sqtpm.css moss-sqtpm *.html *.png
   chmod 660 sqtpm.log *.pass
+  chmod g-s google-code-prettify
   chmod -R 650 google-code-prettify
 fi
