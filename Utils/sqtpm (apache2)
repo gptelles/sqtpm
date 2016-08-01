@@ -1,0 +1,13 @@
+Alias /sqtpm/ /home/www/sqtpm/
+
+<Directory /home/www/sqtpm>
+  AddHandler cgi-script .cgi
+  Options +ExecCGI -MultiViews
+  AllowOverride None
+  Order allow,deny
+  Deny from all
+
+  <FilesMatch "\.(cgi|js|css|png)$">
+    Allow from all
+  </FilesMatch>
+</Directory>

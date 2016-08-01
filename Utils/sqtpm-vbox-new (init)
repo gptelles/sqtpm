@@ -1,0 +1,67 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          sqtpm-vbox
+# Required-Start:    $local_fs $syslog vboxdrv
+# Required-Stop:     $local_fs $syslog 
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Interactive:     true
+# Short-Description: Start/stop sqtpm VM
+### END INIT INFO
+
+
+. /lib/lsb/init-functions
+
+test -f /etc/default/rcS && . /etc/default/rcS
+
+vbm="sudo -u www-data /usr/bin/vboxmanage"
+
+st () {
+  $vbm showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d " "
+  if [[ $? -ne 0 ]]; then
+    log_daemon_msg "No sqtpm VM" "sqtpm-vbox "
+    exit 1
+  fi
+}
+
+
+case $1 in
+
+    start)
+	if [[ `st` != "running" ]]; then 
+	    log_daemon_msg "Starting sqtpm VM" "sqtpm-vbox "
+	    $vbm startvm sqtpm --type headless
+            log_end_msg 0
+	fi
+	;;
+
+    stop)
+	log_daemon_msg "Stopping sqtpm VM" "sqtpm-vbox "
+	
+	if [[ `st`  == "paused" ]]; then 
+	    $vbm controlvm sqtpm resume
+	    sleep 3
+	fi
+	
+	if [[ `st` == "running" ]]; then 
+	    $vbm controlvm sqtpm acpipowerbutton
+	    sleep 5
+	    while [[ `st` != "powered" ]]; do 
+		echo -n '.'
+		sleep 1
+	    done
+	fi
+        log_end_msg 0
+	;;
+    
+    status)
+        cst=`$vbm showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g"`
+	if [[ $? -ne 0 ]]; then
+	    echo "No sqtpm VM"
+	else
+	    echo $cst
+	fi
+	;;
+
+esac
