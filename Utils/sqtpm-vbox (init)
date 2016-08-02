@@ -31,7 +31,7 @@ st () {
 case $1 in
 
     start)
-	if [[ `st` == "powered" ]]; then 
+	if [[ `st` == "powered" || `st` == "aborted" ]]; then 
 	    log_daemon_msg "Starting sqtpm VM" "sqtpm-vbox "
 	    $vbm startvm sqtpm --type headless
             log_end_msg 0

@@ -2,13 +2,11 @@
 
 st=$(su www-data -c "vboxmanage showvminfo sqtpm" | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' ')
 
-date >> /tmp/sqtpm-paused
-echo "status $st" >> /tmp/sqtpm-paused
-
 if [[ "$st" == "running" ]]; then 
   su www-data -c "/usr/bin/perl /home/www/sqtpm/sqtpm-clean-sessions.pl"
   if [ $? -eq 1 ]; then
     su www-data -c "vboxmanage controlvm sqtpm pause"
-    echo "stopped" >> /tmp/sqtpm-paused
+    echo -n "paused " >> /tmp/sqtpm-paused
+    date >> /tmp/sqtpm-paused
   fi
 fi

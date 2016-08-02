@@ -50,8 +50,8 @@ div.f85 {position:relative; width:85%;
 div.f95 {position:relative; width:95%; margin:0px;}
 
 #wrapper {position:relative;
-	  width:calc(100% - 40px);
-	  height:calc(100% - 40px);    
+	  width:calc(100%-40px);
+	  height:calc(100%-40px);    
 	  min-width:500px;
 	  min-height:400px;
 	  top:20px;
@@ -71,7 +71,7 @@ div.f95 {position:relative; width:95%; margin:0px;}
 }
 
 #content {position:relative;
-	  width:calc(100% - 130px);
+	  width:calc(100%-130px);
 	  top:0px;
 	  margin-left:100px;
 	  padding:15px;

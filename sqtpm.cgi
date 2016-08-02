@@ -1167,7 +1167,8 @@ sub submit_assignment {
 
 	$cmd = "./sqtpm-etc.sh $uid $assign $cfg{cputime} $cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
 	system($cmd);
-	($? >> 8) && abort($uid,$assign,"submit : system $cmd : $!");
+	$status = $? >> 8;
+	$status && abort($uid,$assign,"submit : system $cmd : $st : $!");
 
 	# Adjust verifier path:
 	(exists $cfg{verifier}) && ($cfg{verifier} =~ s/\@/$assign\//);

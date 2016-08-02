@@ -12,14 +12,14 @@ cputime=$3
 virtmem=$4
 stkmem=$5
 
-st=`vboxmanage showvminfo sqtpm 2>dev/null` 
+st=`/usr/bin/vboxmanage showvminfo sqtpm 2>/dev/null` 
 if [[ $? -ne 0 ]]; then
   exit 129;
 fi
 
 st=`echo "$st" | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
 if [[ "$st"  == "powered" ]]; then 
-  exit 129;
+  exit 131;
 fi
 
 # If the vm is paused, try to resume it:
@@ -28,7 +28,7 @@ if [[ "$st"  == "paused" ]]; then
   sleep 3
   st=`vboxmanage showvminfo sqtpm | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
   if [[ "$st" == "paused" ]]; then 
-    exit 129
+    exit 133
   fi
 fi
 
