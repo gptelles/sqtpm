@@ -850,9 +850,9 @@ sub submit_assignment {
       $case, $case_out, $casei, $cmd, $compcmd, $date, $discount,
       $elff, $errf, $exec_err, $exec_out, $exec_st, $fh, $full_score,
       $href, $i, $j, $language, $ncases, $newd, $now, $outf, $passed,
-      $rep, $score, $scr, $source, $status, $tries, $uid, $upassf, $userd,
-      $utype, %cfg, %exts, %failed, %names, %rep, @aux, @fh, @pdfs, @show,
-      @sources, @test_cases, @uploads);
+      $rep, $score, $scr, $source, $status, $tries, $uid, $upassf,
+      $userd, $utype, %cfg, %exts, %failed, %langs, %names, %rep,
+      @aux, @fh, @pdfs, @show, @sources, @test_cases, @uploads);
 
   $uid = $session->param('uid');
   $utype = $session->param('utype');
@@ -884,8 +884,11 @@ sub submit_assignment {
     block_user($uid,$upassf,"O prazo para enviar $assign não começou, bloqueado.");
 
   # Check language:
-  (!$language) && abort($uid,$assign,'Selecione uma linguagem.');
-  
+  !$language && abort($uid,$assign,'Selecione uma linguagem.');
+
+  %langs = ('C'=>0,'C++'=>0,'Fortran'=>0,'Pascal'=>0,'PDF'=>0);
+  !exists($langs{$language}) && abort($uid,$assign,"$language não é válida no sqtpm.");
+
   (!grep(/$language/,split(/\s+/,$cfg{languages}))) && 
     abort($uid,$assign,"$assign não pode ser enviado em $language.");
   
@@ -1168,7 +1171,7 @@ sub submit_assignment {
 	$cmd = "./sqtpm-etc.sh $uid $assign $cfg{cputime} $cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
 	system($cmd);
 	$status = $? >> 8;
-	$status && abort($uid,$assign,"submit : system $cmd : $st : $!");
+	$status && abort($uid,$assign,"submit : system $cmd : $status : $!");
 
 	# Adjust verifier path:
 	(exists $cfg{verifier}) && ($cfg{verifier} =~ s/\@/$assign\//);
