@@ -169,7 +169,7 @@ sub load {
     $n++;
   }
 
-  $n == $limit && ($buf .= "...\n");
+  $n == $limit && ($buf .= "\n...\n");
   close($FILE);
 
   $! = 0;
@@ -320,7 +320,7 @@ sub format_epoch {
 # (user_type,pass_file) = authenticate($user_id, $typed_password)
 #
 # Return the user type and the name of the pass file that contains that user.
-# The returning user type may be '', 'capivara' or 'prof'.
+# The returning user type may be '', 'A' or 'P'.
 
 sub authenticate {
 
@@ -362,11 +362,9 @@ sub authenticate {
   !$got && return ('','');
 
   # Sets user type:
-  my $utype = 'capivara';
+  my $utype = 'A';
 
-  if ($prefix eq '*') {
-    $utype = 'prof';
-  }
+  ($prefix eq '*') && ($utype = 'P');
 
   # If typed and stored are both blank, accepts.  If stored is blank
   # and typed is not, rejects:

@@ -166,8 +166,8 @@ sub login_form {
 sub home {
 
   my ($DIR, $first_login, $group, $i, $j, $lang_tags, $scr, $tab,
-      $uid, $upassf, $utype, %cfg, %groups, %rep, @assign, @aux, @group,
-      @groups, @open, @open_langs);
+      $uid, $upassf, $utype, %cfg, %groups, %rep, @assign, @aux,
+      @group, @groups, @open, @open_langs);
 
   $uid = $session->param('uid');
   $utype = $session->param('utype');
@@ -190,12 +190,12 @@ sub home {
     $tab = '<b>Trabalhos:</b>';
     $tab .= '<p></p><div class="f95"><table class="grid">';
     $tab .= '<tr><th class="grid">Enunciado</th>';
-    ($utype eq 'prof') && ($tab .= '<th class="grid">Abertura</th>');
+    ($utype eq 'P') && ($tab .= '<th class="grid">Abertura</th>');
     $tab .= '<th class="grid">Data limite</th>';
     $tab .= '<th class="grid">Estado</th>';
-    ($utype eq 'prof') && ($tab .= '<th class="grid">Grupos</th>');
-    ($utype eq 'capivara') && ($tab .= '<th class="grid">Último envio</th></tr>');
-    ($utype eq 'prof') && ($tab .= '<th class="grid">Moss</th></tr>');
+    ($utype eq 'P') && ($tab .= '<th class="grid">Grupos</th>');
+    ($utype eq 'A') && ($tab .= '<th class="grid">Último envio</th></tr>');
+    ($utype eq 'P') && ($tab .= '<th class="grid">Moss</th></tr>');
     
     @open = ();
     @open_langs = ();
@@ -205,15 +205,15 @@ sub home {
     for ($i=0; $i<@assign; $i++) {
       %cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
       
-      # If this is not a professor and the assignment is still closed, skip it:
-      ($utype ne 'prof') && (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && next;
+      # If this is not a prof and the assignment is still closed, skip it:
+      ($utype ne 'P') && (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && next;
       
       # Assignment tag:
       $tab .= '<tr align="center"><td class="grid">' .
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign[$i]');\">$assign[$i]</a></td>";
 
       # Startup for profs:
-      if ($utype eq 'prof') {
+      if ($utype eq 'P') {
 	$tab .= "<td class=\"grid\">";
 	$tab .= (exists($cfg{startup}) ? $cfg{startup} : 'não há');
 	$tab .= '</td>';
@@ -237,7 +237,7 @@ sub home {
       }
       $tab .= '</td>';
 
-      if ($utype ne 'prof') {
+      if ($utype ne 'P') {
 	if (!exists($cfg{deadline}) || elapsed_days($cfg{deadline})*$cfg{penalty} < 100) {
 	  push(@open,$assign[$i]);
 	  push(@open_langs,$cfg{languages});
@@ -285,7 +285,7 @@ sub home {
     $tab .= '</table></div>';
     
     # Score table links for prof:
-    if ($utype eq 'prof') {
+    if ($utype eq 'P') {
       #$tab .= '<div style="margin-top:20px"></div>';
       $tab .= "<p><b>Tabelas de acertos:</b></p>";
       $tab .= '<div class="f95">';
@@ -390,7 +390,7 @@ sub show_subm_report {
 
   check_assign_access($uid,$upassf,$assign);
 
-  ($utype eq 'prof' && $user ne 'undefined') && ($uid = $user);
+  ($utype eq 'P' && $user ne 'undefined') && ($uid = $user);
 
   $userd = "$assign/$uid";
   $reportf = "$userd/$uid.rep";
@@ -429,7 +429,7 @@ sub show_statement {
   %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
   # If the assignment is not open yet for students, this is strange:
-  ($utype ne 'prof' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
+  ($utype ne 'P' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
     block_user($uid,$upassf,"O prazo para enviar $assign não começou, bloqueado.");
 
   print "<b>Trabalho:</b> $assign";
@@ -756,7 +756,7 @@ sub show_all_scores_table {
 
   $passf = param('arg1').'.pass';
 
-  ($utype ne 'prof') && block_user($uid,$upassf,"$uid não é prof, bloqueado.");
+  ($utype ne 'P') && block_user($uid,$upassf,"$uid não é prof, bloqueado.");
 
   print_start_html();
   
@@ -876,11 +876,11 @@ sub submit_assignment {
   %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
   # Check if the assignment is open:
-  ($utype eq 'capivara' && 
+  ($utype eq 'A' && 
    exists($cfg{deadline}) && elapsed_days($cfg{deadline})*$cfg{penalty} >= 100) && 
    abort($uid,$assign,"O prazo para enviar $assign terminou.");
   
-  ($utype ne 'prof' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
+  ($utype ne 'P' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
     block_user($uid,$upassf,"O prazo para enviar $assign não começou, bloqueado.");
 
   # Check language:
@@ -941,7 +941,7 @@ sub submit_assignment {
   $tries++;
 
   # Check the maximum number of submissions:
-  ($utype eq 'capivara' && $tries >= $cfg{tries}) && 
+  ($utype eq 'A' && $tries >= $cfg{tries}) && 
     abort($uid,$assign,"Você não pode enviar $assign mais uma vez.");
 
   # Create a directory:
@@ -958,7 +958,7 @@ sub submit_assignment {
     ($cfg{penalty} < 100) && ($rep .= "Penalidade por dia de atraso: $cfg{penalty}%<br>\n");
   }
   
-  ($utype ne 'capivara') && ($rep .= "$uid: envios sem restrições de linguagem e prazo.<br>\n");
+  ($utype ne 'A') && ($rep .= "$uid: envios sem restrições de linguagem e prazo.<br>\n");
   $rep .= "Número máximo de envios: $cfg{tries}<br>\n";
 
   $now = format_epoch(time);
@@ -1149,7 +1149,7 @@ sub submit_assignment {
 
 	$score = $full_score = 100;	
 	$discount = 0;
-	if ($utype eq 'capivara' && exists($cfg{deadline})) {
+	if ($utype eq 'A' && exists($cfg{deadline})) {
 	  $discount = elapsed_days($cfg{deadline}) * $cfg{penalty} / 100;
 	  ($discount > 0) && ($score = $full_score * (1 - $discount));
 	  ($score < 0) && ($score = 0);
@@ -1278,7 +1278,7 @@ sub submit_assignment {
 	$score = $full_score;
 
 	$discount = 0;
-	if ($utype eq 'capivara' && exists($cfg{deadline}) && $score > 0) {
+	if ($utype eq 'A' && exists($cfg{deadline}) && $score > 0) {
 	  $discount = elapsed_days($cfg{deadline}) * $cfg{penalty} / 100;
 	  $discount > 0 && ($score = $full_score * (1 - $discount));
 	  ($score < 0) && ($score = 0);
@@ -1379,14 +1379,14 @@ sub submit_assignment {
   # Write log:  
   wlog($uid,$assign,$score);
 
-  if ($utype eq 'capivara') {
+  if ($utype eq 'A') {
     # Update home screen:
     $scr = $session->param('screen');
 
     $i = index($scr,">$assign<");
     $i += index(substr($scr,$i),'<td ') + 3;
-    ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
-    ($utype eq 'prof') && ($i += index(substr($scr,$i),'<td ') + 3);
+    ($utype eq 'P') && ($i += index(substr($scr,$i),'<td ') + 3);
+    ($utype eq 'P') && ($i += index(substr($scr,$i),'<td ') + 3);
     $i += index(substr($scr,$i),'<td ') + 3;
     $i += index(substr($scr,$i),'<td ');
 
@@ -1652,7 +1652,7 @@ sub histogram {
   $data1 = shift;
   $data2 = shift;
 
-  $im = new GD::Image($png_width, $png_height);
+  $im = new GD::Image($png_width,$png_height);
 
   $white = $im->colorAllocate(255,255,255);
   $black = $im->colorAllocate(0,0,0);
@@ -1662,11 +1662,11 @@ sub histogram {
   $gray = $im->colorAllocate(225,225,225);
   $purple = $im->colorAllocate(146,50,172);
 
-  ($tfw, $tfh) = (gdSmallFont->width, gdSmallFont->height);
+  ($tfw,$tfh) = (gdSmallFont->width,gdSmallFont->height);
   
   # Draw a border:
-  $im->rectangle(0, 0, $png_width-1, $png_height-1, $black);
-  $im->fill(1, 1, $gray);
+  $im->rectangle(0,0,$png_width-1,$png_height-1,$black);
+  $im->fill(1,1,$gray);
 
   ### Find maximum in y:
   $max_y = 0;
@@ -1691,12 +1691,9 @@ sub histogram {
   $x_text_area = 4+($max_x*$tfw);
 
   ### Eval x and y scales:
-  $x_scale = ($png_width - (2*$x_margin) - $y_text_area
-	      - (2*$free_axis_end)) / $pairs_total;
+  $x_scale = ($png_width-(2*$x_margin)-$y_text_area-(2*$free_axis_end)) / $pairs_total;
 
-  if ($x_scale > 40) {
-    $x_scale = 40;
-  }
+  ($x_scale > 40) && ($x_scale = 40);
 
   $up_text = 0;
   if ($x_scale < $max_x*1.2*$tfw) {
@@ -1708,8 +1705,7 @@ sub histogram {
     $x_text_area = 20;
   }
 
-  $y_scale = ($png_height-(2*$y_margin)-(2*$free_axis_end)-
-	      $x_text_area) / $max_y;
+  $y_scale = ($png_height-(2*$y_margin)-(2*$free_axis_end)-$x_text_area) / $max_y;
     
 
   ### Print y axis:
@@ -1722,14 +1718,12 @@ sub histogram {
 	    $png_height - $y_margin, 
 	    $black);
 
-
   ### Print x axis:
   $im->line($x_margin, 
 		 $y_zero,
 		 $png_width - $x_margin, 
 		 $y_zero,
 		 $black);
-
 
   ### Print y values:
   @y = values(%$data1);
