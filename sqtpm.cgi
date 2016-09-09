@@ -1,28 +1,23 @@
 #!/usr/bin/perl -w
-
 # This file is part of sqtpm v6.
 # Copyright 2003-2016 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
+use open ":encoding(Latin1)";
+use Time::Local;
+use Fcntl ':flock';
+use File::Find;
+use GD;
 use CGI qw(:cgi Link start_html);
 use CGI::Session qw/-ip-match/;
 use CGI::Carp 'fatalsToBrowser';
 use CGI::Session::Driver::file; 
 use LWP::Simple qw(head);
+use sqtpm;
 
 $CGI::POST_MAX = 1000000;
 $CGI::Session::Driver::file::FileName = 'sqtpm-sess-%s';  
 $sessiond = '/tmp';
-
-use Cwd;
-use Time::Local;
-use POSIX qw(ceil floor);
-use Fcntl ':flock';
-use File::Path;
-use File::Find;
-use GD;
-
-use sqtpm;
 
 umask(0007);
 
@@ -159,6 +154,7 @@ sub login_form {
 
   print end_html();
 }
+
 
 
 
@@ -376,6 +372,7 @@ sub home {
 
 
 
+
 ################################################################################
 sub show_subm_report {
 
@@ -411,6 +408,7 @@ sub show_subm_report {
 
 
 
+
 ################################################################################
 sub show_statement {
 
@@ -433,8 +431,9 @@ sub show_statement {
     block_user($uid,$upassf,"O prazo para enviar $assign não começou, bloqueado.");
 
   print "<b>Trabalho:</b> $assign";
-  print "<br>Linguagens: $cfg{languages}";
-  
+  print '<table><tr><td style="vertical-align:top">';
+  print "Linguagens: $cfg{languages}";
+
   # Pascal and Fortran are limited to a sigle source file:
   ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran') && ($cfg{sources} = '1,1');
 
@@ -474,6 +473,20 @@ sub show_statement {
       "onclick=\"wrap('dwn','$assign','$assign/casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
   }
 
+  if ($utype eq 'P') {
+    print '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align:top">';
+    print "Backup: $cfg{backup} <br>";
+    print 'Pontuação: ', $cfg{scoring} eq 'total' ? 'total' : 'proporcional', '<br>';
+    print "cputime: $cfg{cputime} s<br>";
+    print "virtmem: $cfg{virtmem} kb<br>";
+    print "stkmem: $cfg{stkmem} kb<br>";
+    %langs = map { $_ => 1 } split(/ +/,$cfg{languages});
+    (exists($langs{C}) && exists($cfg{'gcc-args'})) && (print "gcc-args: $cfg{'gcc-args'}<br>");
+    print '</td>';
+  }
+  print '</tr>';
+  print '</table>';
+
   if (exists($cfg{description})) {
     if ($cfg{description} =~ /^http/) {
       print "<p>Enunciado: <a href=\"$cfg{description}\">$cfg{description}</a>";
@@ -481,6 +494,7 @@ sub show_statement {
     elsif (-f "$assign/$cfg{description}") {
       print '<hr>';
       print_html($assign,$cfg{description});
+      print '<hr>';
     }
     else {
       abort($uid,$assign,"description em config de $assign não é http nem arquivo.");
@@ -492,6 +506,7 @@ sub show_statement {
 
   print_end_html();
 }
+
 
 
 
@@ -510,6 +525,7 @@ sub show_about {
 
 
 
+
 ################################################################################
 sub show_help {
 
@@ -519,6 +535,7 @@ sub show_help {
   print_html('',$file);
   print_end_html();
 }  
+
 
 
 
@@ -553,6 +570,7 @@ sub download_file {
   }
   close($FILE);
 }
+
 
 
 
@@ -744,6 +762,7 @@ sub show_scores_table {
 
 
 
+
 ################################################################################
 sub show_all_scores_table {
 
@@ -843,6 +862,7 @@ sub show_all_scores_table {
 
 
 
+
 ################################################################################
 sub submit_assignment {
 
@@ -910,11 +930,11 @@ sub submit_assignment {
 
   $cfg{sources} =~ /(\d+),(\d+)/;
   (@sources < $1 || @sources > $2) && 
-    abort($uid,$assign,"Envie o número correto de arquivos-fonte.");
+    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos-fonte.');
 
   $cfg{pdfs} =~ /(\d+),(\d+)/;
   (@pdfs < $1 || @pdfs > $2) && 
-    abort($uid,$assign,"Envie o número correto de arquivos pdf.");
+    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos pdf.');
 
   if (exists($cfg{filenames})) {
     %names = ();
@@ -1402,6 +1422,7 @@ sub submit_assignment {
 
 
 
+
 ################################################################################
 sub moss {
 
@@ -1477,6 +1498,7 @@ sub moss {
 
 
 
+
 ################################################################################
 # print_start_html($first_login,$help,$back)
 #
@@ -1511,7 +1533,7 @@ sub print_start_html {
     print '<a href="sqtpm.cgi">voltar</a>';
   }
   else {
-    print '<a href="javascript:;" onclick="history.go(-1); return false;">voltar</a>';
+    print '<a href="javascript:;" onclick="window.history.go(-1); return false;">voltar</a>';
   }    
   
   print '</div><div id="content">';
@@ -1526,6 +1548,7 @@ sub print_start_html {
 
 
 
+
 ################################################################################
 # sub print_end_html(help)
 
@@ -1534,6 +1557,7 @@ sub print_end_html() {
   print '</form></div>';
   print end_html();
 }
+
 
 
 
@@ -1553,6 +1577,7 @@ sub check_assign_access {
 
   block_user($uid,$upassf,"$upassf não está em $assign, bloqueado.");
 }
+
 
 
 
@@ -1591,6 +1616,7 @@ sub block_user {
 
 
 
+
 ################################################################################
 # A wanted function to find sources for moss.  It uses @sources from
 # an outer scope.
@@ -1601,6 +1627,7 @@ sub wanted_moss {
     (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/) && 
     (push(@sources,"$File::Find::name"));
 }
+
 
 
 
@@ -1623,6 +1650,7 @@ sub wanted_hist {
 
   return;
 }
+
 
 
 

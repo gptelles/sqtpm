@@ -352,8 +352,3 @@ print "Query submitted.  Waiting for the server's response.\n";
 &read_from_server();
 print $sock "end\n";
 close($sock);
-
-
-
-
-

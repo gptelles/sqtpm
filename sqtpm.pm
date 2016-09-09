@@ -24,6 +24,7 @@ require Exporter;
              get_rep_data 
              );
 
+use open ":encoding(Latin1)";
 use CGI qw(:standard);
 use CGI::Carp 'fatalsToBrowser';
 use Time::Local;
