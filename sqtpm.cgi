@@ -578,7 +578,7 @@ sub download_file {
 sub show_scores_table {
 
   my ($assign, $curr, $d, $date, $first, $i, $k, $last, $m, $n,
-      $passf, $show, $show100, $size, $uid, $upassf, $user, $usersuf,
+      $passf, $show, $show100, $size, $uid, $upassf, $user,
       $utype, $y, %cfg, %freq, %freq100, %langs, %rep, %scores, @aux,
       @f, @langs, @users);
 
@@ -608,15 +608,16 @@ sub show_scores_table {
   %scores = ();
   %langs = ();
 
-  foreach $user (@users) {
-    $usersuf = $user;
-    $usersuf =~ s/^[\*@]?//;
+  for ($i=0; $i<@users; $i++) {
+    $users[$i] =~ s/^[\*@]?//;
+  }    
 
-    %rep = get_rep_data("$assign/$usersuf/$usersuf.rep");
+  foreach $user (@users) {
+    %rep = get_rep_data("$assign/$user/$user.rep");
 
     if (exists($rep{score})) { 
       $scores{$user} = '<a href="javascript:;"' . 
-	"onclick=\"wrap('rep','$assign','$usersuf');\">$rep{score}</a>";
+	"onclick=\"wrap('rep','$assign','$user');\">$rep{score}</a>";
 
       (!exists($langs{$rep{lang}})) && ($langs{$rep{lang}} = ());
       push(@{$langs{$rep{lang}}},$user);
@@ -794,6 +795,10 @@ sub show_all_scores_table {
   # Get users:
   @users = sort keys %{{load_keys_values($passf,':')}};
 
+  for ($i=0; $i<@users; $i++) {
+    $users[$i] =~ s/^[\*@]?//;
+  }    
+
   # Build the structure: $scores{assignment}{id} = score.
   %scores = ();
 
@@ -801,16 +806,13 @@ sub show_all_scores_table {
     $scores{$amnts[$i]} = { () };
 
     foreach $user (@users) {
-      $usersuf = $user;
-      $usersuf =~ s/^[\*@]?//;
-
-      %rep = get_rep_data("$amnts[$i]/$usersuf/$usersuf.rep");
+      %rep = get_rep_data("$amnts[$i]/$user/$user.rep");
 
       if ($rep{tries} > 0) {
 	$rep{score} =~ s/%//;
 	$rep{score} =~ s/recebido/r/;
 	$scores{$amnts[$i]}{$user} = '<a href="javascript:;"' . 
-	  "onclick=\"wrap('rep','$amnts[$i]','$usersuf');\">$rep{score}</a>";
+	  "onclick=\"wrap('rep','$amnts[$i]','$user');\">$rep{score}</a>";
       }
       else {
 	$scores{$amnts[$i]}{$user} = '-';
@@ -958,11 +960,12 @@ sub submit_assignment {
     %rep = get_rep_data("$assign/$uid/$uid.rep");
     $tries = $rep{tries};
   }
-  $tries++;
 
   # Check the maximum number of submissions:
   ($utype eq 'A' && $tries >= $cfg{tries}) && 
     abort($uid,$assign,"Você não pode enviar $assign mais uma vez.");
+
+  $tries++;
 
   # Create a directory:
   $userd = "$assign/_${uid}_tmp_";
@@ -1331,11 +1334,11 @@ sub submit_assignment {
 		$rep .= "\n</div>";
 	      }
 
-	      $j = (-s "$userd/$show[$i].run.out")*2;
-	      ($j < 2500) && ($j = 2500);
-
 	      $rep .= '<p>Saída produzida:<br><div class="io">';
-	      $rep .= load($uid,$assign,"$userd/$show[$i].run.out",0,$j);
+	      if (-f "$userd/$show[$i].run.out") {
+		$rep .= load($uid,$assign,"$userd/$show[$i].run.out",0,
+			     int((-s "$assign/$show[$i].out")*1.1));
+	      }
 	      $rep .= "\n</div>";
 	      $rep .= '<hr>';
 	    }
@@ -1357,11 +1360,11 @@ sub submit_assignment {
   print $rep;
   print end_html();
 
-  # Clean-up:
+  ## Clean-up:
   ($elff && -e $elff) && unlink($elff);
   ($outf && -e $outf) && unlink($outf);
   ($errf && -e $errf) && unlink($errf);
-
+  
   foreach $case (@test_cases) {
     (-e "$userd/$case.run.st")  && unlink("$userd/$case.run.st");
     (-e "$userd/$case.run.out") && unlink("$userd/$case.run.out");
