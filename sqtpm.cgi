@@ -470,7 +470,7 @@ sub show_statement {
 
   if (-f "$assign/casos-de-teste.tgz") {
     print "<br>Casos-de-teste abertos: <a href=\"javascript:;\" " .
-      "onclick=\"wrap('dwn','$assign','$assign/casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
+      "onclick=\"wrap('dwn','$assign','','$assign/casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
   }
 
   if ($utype eq 'P') {
@@ -542,27 +542,36 @@ sub show_help {
 ################################################################################
 sub download_file {
 
-  my ($FILE, $assign, $file, $uid, $upassf);
+  my ($FILE, $assign, $file, $uid, $suid, $upassf, $utype);
 
   $uid = $session->param('uid');
+  $utype = $session->param('utype');
   $upassf = $session->param('upassf');
 
   $assign = param('arg1');
   $file = param('arg2');
+  $suid = param('arg3');
 
   # Check user access rights to assignment:
   check_assign_access($uid,$upassf,$assign);
 
   # Check file existance:
   if ($file ne "$assign/casos-de-teste.tgz") {
-    $file = "$assign/$uid/$file";
-    if (!-f $file) {
-      block_user($uid,$upassf,"O arquivo $file não existe, bloqueado.");
+    
+    if ($utype eq 'A') {
+      $file = "$assign/$uid/$file";
+      if (!-f $file) {
+	block_user($uid,$upassf,"O arquivo $file não existe, bloqueado.");
+      }
+    }
+    elsif ($utype eq 'P') {
+      $file = "$assign/$suid/$file";
     }
   }
+
   # Download:
   print "Content-Type:application/x-download\nContent-Disposition:attachment;filename=$file\n\n";
-
+  
   open($FILE,'<',$file) || abort($uid,$assign,"download_file : open $file : $!");
   binmode $FILE;
   while (<$FILE>) {
@@ -1035,7 +1044,7 @@ sub submit_assignment {
   }
   for ($i=0; $i<@pdfs; $i++) {
     $rep .= '<a href="javascript:;" ' . 
-      "onclick=\"wrap('dwn','$assign','$pdfs[$i]');\">$pdfs[$i]</a>&nbsp; ";
+      "onclick=\"wrap('dwn','$assign','$uid','$pdfs[$i]');\">$pdfs[$i]</a>&nbsp; ";
   }
 
   $href = $cgi->url();
@@ -1048,7 +1057,7 @@ sub submit_assignment {
   for ($i=0; $i<@sources; $i++) {
     $rep .= "<div id=\"$sources[$i]\" style=\"display:none\" class=\"src\">" . 
       "<b>$sources[$i]</b>&nbsp;&nbsp;" . 
-      "<a href=\"javascript:;\" onclick=\"wrap('dwn','$assign','$sources[$i]')\">download</a>";
+      "<a href=\"javascript:;\" onclick=\"wrap('dwn','$assign','$uid','$sources[$i]')\">download</a>";
 
     $source = "$userd/$sources[$i]";
     if ($sources[$i] =~ /\.c$/ || $sources[$i] =~ /\.h$/) {
