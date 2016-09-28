@@ -128,7 +128,7 @@ sub login_form {
 		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'})]);
 
   print <<'  END';
-    <script src="sqtpm.js"></script>
+    <script src="sqtpm.js?61"></script>
     <div class="f85">
     <h1>sqtpm</h1>
     <form method="post" action="sqtpm.cgi" enctype="multipart/form-data" name="sqtpm">
@@ -142,7 +142,9 @@ sub login_form {
     </table>
     <input type="hidden" name="action">
     <input type="hidden" name="arg1">
-    <input type="hidden" name="arg2"><hr>
+    <input type="hidden" name="arg2">
+    <input type="hidden" name="arg3">
+    <hr>
     <a href="javascript:;" onclick="login()">entrar</a> &nbsp; &#8226; &nbsp; 
     <a href="sqtpm-pwd.cgi">senhas</a> &nbsp; &#8226; &nbsp; 
     <a href="javascript:;" onclick="about()">bula</a>
@@ -470,7 +472,7 @@ sub show_statement {
 
   if (-f "$assign/casos-de-teste.tgz") {
     print "<br>Casos-de-teste abertos: <a href=\"javascript:;\" " .
-      "onclick=\"wrap('dwn','$assign','','$assign/casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
+      "onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
   }
 
   if ($utype eq 'P') {
@@ -544,20 +546,22 @@ sub download_file {
 
   my ($FILE, $assign, $file, $uid, $suid, $upassf, $utype);
 
+  $assign = param('arg1');
+  $suid = param('arg2');
+  $file = param('arg3');
+
   $uid = $session->param('uid');
   $utype = $session->param('utype');
   $upassf = $session->param('upassf');
-
-  $assign = param('arg1');
-  $file = param('arg2');
-  $suid = param('arg3');
 
   # Check user access rights to assignment:
   check_assign_access($uid,$upassf,$assign);
 
   # Check file existance:
-  if ($file ne "$assign/casos-de-teste.tgz") {
-    
+  if ($file eq "casos-de-teste.tgz") {
+    $file = "$assign/$file";
+  }
+  else {
     if ($utype eq 'A') {
       $file = "$assign/$uid/$file";
       if (!-f $file) {
@@ -1051,7 +1055,7 @@ sub submit_assignment {
   $href =~ s/\/[^\/]+$//;
   $href .= '/google-code-prettify';
   $rep .= "<link href=\"$href/prettify.css\" type=\"text/css\" rel=\"stylesheet\">" .
-    "<script type=\"text/javascript\" src=\"$href/run_prettify.js\"></script>";
+    "<script type=\"text/javascript\" src=\"$href/run_prettify.js?61\"></script>";
 
   # Include source files:
   for ($i=0; $i<@sources; $i++) {
@@ -1359,7 +1363,7 @@ sub submit_assignment {
   }
 
   # Add data to parse easily later:
-  $rep = "<!--lang:$language-->\n" . "<!--score:$score-->\n" . 
+  $rep = "\n<!--lang:$language-->\n" . "<!--score:$score-->\n" . 
     "<!--tries:$tries-->\n" . "<!--at:$now-->\n" . $rep;
 
   open($REPORT,'>',"$userd/$uid.rep") || abort($uid,$assign,"submit : write $userd/$uid.rep : $!");
@@ -1555,7 +1559,8 @@ sub print_start_html {
     '<script type="text/javascript" src="sqtpm.js"></script>' .
     '<input type="hidden" name="action">' .
     '<input type="hidden" name="arg1">' . 
-    '<input type="hidden" name="arg2">';
+    '<input type="hidden" name="arg2">' .
+    '<input type="hidden" name="arg3">';
 }
 
 

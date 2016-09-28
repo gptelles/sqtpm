@@ -33,10 +33,11 @@ function about() {
 }
 
 
-function wrap(action,arg1,arg2) { 
+function wrap(action,arg1,arg2,arg3) { 
     document.sqtpm.action.value = action;
     document.sqtpm.arg1.value = arg1;
     document.sqtpm.arg2.value = arg2;
+    document.sqtpm.arg3.value = arg3;
     document.sqtpm.submit(); 
 }
 
