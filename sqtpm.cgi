@@ -1363,7 +1363,7 @@ sub submit_assignment {
   }
 
   # Add data to parse easily later:
-  $rep = "\n<!--lang:$language-->\n" . "<!--score:$score-->\n" . 
+  $rep = "<!--lang:$language-->\n" . "<!--score:$score-->\n" . 
     "<!--tries:$tries-->\n" . "<!--at:$now-->\n" . $rep;
 
   open($REPORT,'>',"$userd/$uid.rep") || abort($uid,$assign,"submit : write $userd/$uid.rep : $!");
