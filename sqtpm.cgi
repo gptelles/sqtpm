@@ -565,7 +565,7 @@ sub download_file {
     if ($utype eq 'A') {
       $file = "$assign/$uid/$file";
       if (!-f $file) {
-	block_user($uid,$upassf,"O arquivo $file não existe, bloqueado.");
+	#block_user($uid,$upassf,"O arquivo $file não existe, bloqueado.");
       }
     }
     elsif ($utype eq 'P') {
@@ -1022,7 +1022,7 @@ sub submit_assignment {
     if ($uploads[$i] =~ /\.pdf$/) {
       binmode $SOURCE;
       while (<$fh>){
-	print $SOURCE;
+	print $SOURCE $_;
       }
       push(@pdfs,$uploads[$i]);
     }
@@ -1218,11 +1218,16 @@ sub submit_assignment {
 	$casei = 1;
 
 	foreach $case (@test_cases) {
-
+	  
+	  $case_in = "$assign/$case.in";
 	  $case_out = "$assign/$case.out";
 	  $exec_st = "$userd/$case.run.st";
 	  $exec_out = "$userd/$case.run.out";
 	  $exec_err = "$userd/$case.run.err";
+
+	  (!-r $case_in) && abort($uid,$assign,"Erro ao ler $case_in.");
+	  (-s $exec_st && !-r $exec_st) && abort($uid,$assign,"Erro ao ler $exec_st.");
+	  (!-r $exec_out) && abort($uid,$assign,"Erro ao ler $exec_out.");
 
 	  $failed{$case} = $casei;
 
@@ -1233,7 +1238,7 @@ sub submit_assignment {
 	    close($STATUS);
 	  }
 	  else {
-	    $status = 11;
+	    $status = 9;
 	  }
 
 	  $rep .= sprintf("%.02d:&nbsp;",$casei);
@@ -1248,14 +1253,14 @@ sub submit_assignment {
 	    $rep .= 'erro de ponto flutuante.<br>';
 	  }
 	  elsif ($status > 0 || -s $exec_err) {
+	    (-s $exec_err && !-r $exec_err) && abort($uid,$assign,"Erro ao ler $exec_err.");
 	    $rep .= "erro de execução ($status).<br>";
 	    (-s $exec_err) && 
 	      ($rep .= '<div class="io">' . load($uid,$assign,$exec_err,0,1000) . "</div>\n");
 	  }
 	  else {
 	    if (exists($cfg{verifier})) {
-
-	      system("$cfg{verifier} $assign/$case.in $exec_out >/dev/null 2>&1");
+	      system("$cfg{verifier} $case_in $exec_out >/dev/null 2>&1");
 	      $status = $? >> 8;
 
 	      if ($status == 0) {
@@ -1274,6 +1279,8 @@ sub submit_assignment {
 	      }
 	    }
 	    else {
+	      (!-r $case_out) && abort($uid,$assign,"Erro ao ler $case_out.");
+
 	      system("$cfg{diff} -q $case_out $exec_out >/dev/null 2>&1");
 	      $status = $? >> 8;
 
@@ -1350,7 +1357,7 @@ sub submit_assignment {
 	      $rep .= '<p>Saída produzida:<br><div class="io">';
 	      if (-f "$userd/$show[$i].run.out") {
 		$rep .= load($uid,$assign,"$userd/$show[$i].run.out",0,
-			     int((-s "$assign/$show[$i].out")*1.1));
+			     int((-s "$assign/$show[$i].out")*1.2));
 	      }
 	      $rep .= "\n</div>";
 	      $rep .= '<hr>';
