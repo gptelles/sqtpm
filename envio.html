@@ -12,17 +12,24 @@ menos que haja uma restrição indicada no enunciado do trabalho.
 <p>
 Os arquivos que serão enviados devem ter nomes formados apenas por
 letras sem acentos, dígitos, pontos, hífens e sublinhados.  Eles
-também devem ter certos sufixos, de acrodo com a linguagem:
+também devem ter certos sufixos, de acordo com a linguagem:
 
 <ul>
-<li> C: .c e .h
-<li> C++: .cpp e .h
+<li> C: .c ou .h
+<li> C++: .cpp ou .h
 <li> Pascal: .pas
 <li> Fortran: .f ou .F
+<li> PDF: .pdf
 </ul>
 
-Se o trabalho especificar o envio de arquivos PDF então eles devem ter .pdf
-como sufixo.
+Se o trabalho especificar o envio de arquivos PDF juntamente com o
+código fonte então eles devem ter .pdf como sufixo.
+
+<p>
+O sqtpm usa o sinal retornado ao término do programa para determinar o
+estado da execução.  Evite definir o valor de retorno da função main
+do seu programa com valores maiores que 127.  Convencionalmente
+retorna-se 0 quando o programa for bem sucedido.
 
 
 <p>
@@ -52,11 +59,6 @@ saída produzida pelo programa e a saída esperada.
 Em alguns trabalhos a saída correta não é única.  Nesses casos o sqtpm
 exibirá apenas a entrada e a saída produzida pelo programa para os
 casos-de-teste abertos.
-
-<p>
-O sqtpm usa o sinal retornado ao termino do programa para determinar o
-estado da execução.  Evite definir o valor de retorno da função main
-do seu programa com valores maiores que 127.
 
 <p>
 Não deixe de verificar o número máximo de envios permitidos para o

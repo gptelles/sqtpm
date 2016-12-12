@@ -2,7 +2,7 @@
 
 ### BEGIN INIT INFO
 # Provides:          sqtpm-vbox
-# Required-Start:    $local_fs $syslog vboxdrv
+# Required-Start:    $local_fs $syslog vboxdrv 
 # Required-Stop:     $local_fs $syslog 
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
@@ -39,19 +39,30 @@ case $1 in
 	;;
 
     stop)
+	if [[ `st` == "powered" || `st` == "aborted" ]]; then 
+	    exit
+	fi
+
 	log_daemon_msg "Stopping sqtpm VM" "sqtpm-vbox "
 	
 	if [[ `st`  == "paused" ]]; then 
 	    $vbm controlvm sqtpm resume
-	    sleep 3
+	    sleep 5
 	fi
-	
+
+	while [[ `st` == "paused" ]]; do 
+	    sleep 5
+	done
+
 	if [[ `st` == "running" ]]; then 
 	    $vbm controlvm sqtpm acpipowerbutton
 	    sleep 5
-	    while [[ `st` != "powered" ]]; do 
+	    i=0
+	    while [[ `st` != "powered" &&  i -lt 30 ]]; do 
 		echo -n '.'
-		sleep 1
+		$vbm controlvm sqtpm acpipowerbutton
+		sleep 5
+		((i+=5))
 	    done
 	fi
         log_end_msg 0

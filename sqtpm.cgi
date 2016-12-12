@@ -213,13 +213,13 @@ sub home {
       # Startup for profs:
       if ($utype eq 'P') {
 	$tab .= "<td class=\"grid\">";
-	$tab .= (exists($cfg{startup}) ? $cfg{startup} : 'não há');
+	$tab .= (exists($cfg{startup}) ? dow($cfg{startup}) . " &nbsp;$cfg{startup}" : 'não há');
 	$tab .= '</td>';
       }
       
       # Deadline:
       $tab .= "<td class=\"grid\">";
-      $tab .= exists($cfg{deadline}) ? "$cfg{deadline} " : 'não há ';
+      $tab .= exists($cfg{deadline}) ? dow($cfg{deadline}) . " &nbsp;$cfg{deadline}" : 'não há ';
       $tab .= '</td>';
 
       # State:
@@ -928,7 +928,7 @@ sub submit_assignment {
     abort($uid,$assign,"$assign não pode ser enviado em $language.");
   
   # Check the number of uploading files and their names: 
-  @pdfs = grep(/\.pdf$/ && /^[0-9a-zA-Z_\.\-]+$/,@uploads);
+  @pdfs = grep(/\.pdf$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);
   
   if ($language eq 'PDF') {
     ($cfg{sources} = '0,0');
@@ -937,7 +937,7 @@ sub submit_assignment {
   else {
     (!exists($cfg{pdfs})) && ($cfg{pdfs} = '0,0');
     %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Pascal'=>'pas','Fortran'=>'(f|F)');
-    @sources = grep(/$exts{$language}$/ && /^[0-9a-zA-Z_\.\-]+$/,@uploads);  
+    @sources = grep(/$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
     (!exists($cfg{sources})) && ($cfg{sources} = '1,999');
     # Pascal and Fortran are limited to a sigle source file:
     ($language eq 'Pascal' || $language eq 'Fortran') && ($cfg{sources} = '1,1');
@@ -945,11 +945,15 @@ sub submit_assignment {
 
   $cfg{sources} =~ /(\d+),(\d+)/;
   (@sources < $1 || @sources > $2) && 
-    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos-fonte.');
+    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos-fonte. ' .
+	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
+	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.");
 
   $cfg{pdfs} =~ /(\d+),(\d+)/;
   (@pdfs < $1 || @pdfs > $2) && 
-    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos pdf.');
+    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos pdf. ' .
+	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
+	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.");
 
   if (exists($cfg{filenames})) {
     %names = ();

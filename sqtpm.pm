@@ -19,6 +19,7 @@ require Exporter;
 
              elapsed_days
              format_epoch
+             dow
 
              authenticate
              get_rep_data 
@@ -298,6 +299,28 @@ sub elapsed_days {
   }
 
   return 0;
+}
+
+
+
+################################################################################
+# dow($date)
+#
+# Return the name of the day of week of date.
+# Expected date format is aaaa/mm/dd hh:mm:ss
+
+sub dow {
+
+  my $date = shift;
+
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = 
+    localtime(timelocal(substr($date,17,2),substr($date,14,2),substr($date,11,2), 
+			substr($date,8,2),substr($date,5,2)-1,substr($date,0,4)-1900));
+
+  # my @days = ( 'domingo','segunda','terça','quarta','quinta','sexta','sábado' );
+  my @days = ( 'dom','seg','ter','qua','qui','sex','sáb' );
+
+  return $days[$wday];
 }
 
 
