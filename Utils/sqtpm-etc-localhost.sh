@@ -13,18 +13,19 @@ umask 0000
 
 date=`/bin/date +%d%b%y-%H%M%S`
 tmpd="$date-$$"
-mkdir $assign/$uid/$tmpd
+userd="_${uid}_tmp_"
+mkdir $assign/$userd/$tmpd
 
 cd $assign &>/dev/null
 cases=(`ls *.in`)
 
-\cp -p *.in $uid/$tmpd
+\cp -p *.in $userd/$tmpd
 
 if [[ -d extra-files ]]; then
-  \cp -rp extra-files/* $uid/$tmpd
+  \cp -rp extra-files/* $userd/$tmpd
 fi
 
-cd $uid &>/dev/null
+cd $userd &>/dev/null
 
 \cp -p elf $tmpd
 
