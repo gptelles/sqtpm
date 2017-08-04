@@ -296,73 +296,73 @@ sub home {
       }
       $tab .= '</div>';
     }
-  
+    
     # "No assignments" message or submission controls:
     if (@assign == 0) {
       $scr = "<p>Não há trabalhos para $uid.</p>";
     }
     else {
-
-	if (@open == 0) {
-	    $scr .= $tab;
-	}
-	else {
-      # js to force page reload:                                                
-      $scr = '<script language=\"javascript\">' .                               
-        'window.onpageshow = function(e) {' .                                   
-        'if (e.persisted) { document.body.style.display = \"none\"; location.reload(); } };' .
-        '</script>';                                                            
-                       
-      $scr .= $tab;
-
-      # The assignments and languagess are added as variables loaded dinamically by JS.  
-      # The assignment names, the language tags and the language labels go in
-      # arrays of strings.  Languages for each statement are separated by |:
-      $scr .= '<script type="text/javascript">';
-      $scr .= 'var assignments = new Array(';      
-  
-      for ($i=0; $i<@open-1; $i++) {
-	$scr .= "\"$open[$i]\",";
-      }
-      $scr .= "\"$open[$#open]\");";
-     
-      $scr .= 'var language_tags = new Array();';
-      $scr .= 'var language_labels = new Array();';
-      $scr .= 'language_tags[0] = "";';
-      $scr .= 'language_labels[0] = "";';
       
-      for ($i=0; $i<@open_langs; $i++) {
-	@aux = split(/\s+/,$open_langs[$i]);
-	
-	$lang_tags = ''; 
-	
-	for ($j=0; $j<@aux-1; $j++) {
-	  $lang_tags .= "$aux[$j]|";
-	}
-	$lang_tags .= "$aux[$j]";
-	
-	$j = $i+1;
-	$scr .= "language_tags[$j] = \"$lang_tags\";";
-	$scr .= "language_labels[$j] = \"$lang_tags\";";
+      if (@open == 0) {
+	$scr .= $tab;
       }
-
-      $scr .= '</script>' .
-	#'<div style="margin-top:20px"></div>' .
-	'<p><b>Enviar:</b></p>' .
-	'<div class="f95">' .
-	'<table cellspacing="1" border="0">' .
-	'<tr><td>Trabalho:</td><td><select name="submassign" id="submassign" ' .
-	'  onchange="javascript:fill_langs(\'submassign\',\'language\')"></select></td></tr>' .
-	'<tr><td>Linguagem:</td><td><select name="language" id="language"></select></td></tr>' .
-	'<tr><td>Arquivos:</td><td>' .
-	'  <input type="file" name="source" multiple size="30" maxlength="80"></td></tr>' .
-	'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>' .
-	'<tr><td><input type="submit" class="button" name="subm" value="Enviar" ' .
-	'  onclick="javascript:wrap(\'sub\')"></td><td></td></tr>'.
-	'</table>' .
-	'<script>fill_assigns("submassign","language");</script>' .
-	'</div>';
-    }
+      else {
+	# js to force page reload:                                                
+	$scr = '<script language=\"javascript\">' .                               
+	  'window.onpageshow = function(e) {' .                                   
+	  'if (e.persisted) { document.body.style.display = \"none\"; location.reload(); } };' .
+	  '</script>';                                                            
+	
+	$scr .= $tab;
+	
+	# The assignments and languagess are added as variables loaded dinamically by JS.  
+	# The assignment names, the language tags and the language labels go in
+	# arrays of strings.  Languages for each statement are separated by |:
+	$scr .= '<script type="text/javascript">';
+	$scr .= 'var assignments = new Array(';      
+	
+	for ($i=0; $i<@open-1; $i++) {
+	  $scr .= "\"$open[$i]\",";
+	}
+	$scr .= "\"$open[$#open]\");";
+	
+	$scr .= 'var language_tags = new Array();';
+	$scr .= 'var language_labels = new Array();';
+	$scr .= 'language_tags[0] = "";';
+	$scr .= 'language_labels[0] = "";';
+	
+	for ($i=0; $i<@open_langs; $i++) {
+	  @aux = split(/\s+/,$open_langs[$i]);
+	  
+	  $lang_tags = ''; 
+	  
+	  for ($j=0; $j<@aux-1; $j++) {
+	    $lang_tags .= "$aux[$j]|";
+	  }
+	  $lang_tags .= "$aux[$j]";
+	  
+	  $j = $i+1;
+	  $scr .= "language_tags[$j] = \"$lang_tags\";";
+	  $scr .= "language_labels[$j] = \"$lang_tags\";";
+	}
+	
+	$scr .= '</script>' .
+	  #'<div style="margin-top:20px"></div>' .
+	  '<p><b>Enviar:</b></p>' .
+	  '<div class="f95">' .
+	  '<table cellspacing="1" border="0">' .
+	  '<tr><td>Trabalho:</td><td><select name="submassign" id="submassign" ' .
+	  '  onchange="javascript:fill_langs(\'submassign\',\'language\')"></select></td></tr>' .
+	  '<tr><td>Linguagem:</td><td><select name="language" id="language"></select></td></tr>' .
+	  '<tr><td>Arquivos:</td><td>' .
+	  '  <input type="file" name="source" multiple size="30" maxlength="80"></td></tr>' .
+	  '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>' .
+	  '<tr><td><input type="submit" class="button" name="subm" value="Enviar" ' .
+	  '  onclick="javascript:wrap(\'sub\')"></td><td></td></tr>'.
+	  '</table>' .
+	  '<script>fill_assigns("submassign","language");</script>' .
+	  '</div>';
+      }
     }
     $session->param('screen',$scr);
   }
