@@ -15,5 +15,6 @@ else
   chmod 640 sqtpm.pm sqtpm.cfg sqtpm.js sqtpm.css moss-sqtpm *.html *.png
   chmod 660 sqtpm.log *.pass
   chmod g-s google-code-prettify
-  chmod -R 650 google-code-prettify
+  chmod 750 google-code-prettify
+  chmod 640 google-code-prettify/*
 fi

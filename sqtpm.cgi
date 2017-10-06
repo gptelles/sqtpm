@@ -414,7 +414,7 @@ sub show_subm_report {
 ################################################################################
 sub show_statement {
 
-  my ($assign, $i, $uid, $upassf, $utype, %cfg, @aux);
+  my ($DIR, $assign, $i, $group, $uid, $upassf, $utype, %cfg, @aux);
 
   $uid = $session->param('uid');
   $utype = $session->param('utype');
@@ -478,7 +478,7 @@ sub show_statement {
   if ($utype eq 'P') {
     print '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align:top">';
     print "Backup: $cfg{backup} <br>";
-    print 'Pontuação: ', $cfg{scoring} eq 'total' ? 'total' : 'proporcional', '<br>';
+    print 'Pontuação: ', $cfg{scoring}, '<br>';
     print "cputime: $cfg{cputime} s<br>";
     print "virtmem: $cfg{virtmem} kb<br>";
     print "stkmem: $cfg{stkmem} kb<br>";
@@ -488,6 +488,21 @@ sub show_statement {
   }
   print '</tr>';
   print '</table>';
+
+  # Groups:
+  if ($utype eq 'P') {
+    opendir($DIR,$assign) || abort($uid,$assign,"home : opendir $assign : $!.");
+    @aux = sort(grep {/\.pass$/ && -l "$assign/$_"} readdir($DIR));
+    close($DIR);
+
+    print "Grupos:&nbsp;";
+    for ($i=0; $i<@aux; $i++) {
+      $group = $aux[$i];
+      $group =~ s/\.pass$//;
+      print "<a href=\"javascript:;\"" .
+	"onclick=\"wrap('scr','$group','$assign');\">$group</a>&nbsp; ";
+    }
+  }
 
   if (exists($cfg{description})) {
     if ($cfg{description} =~ /^http/) {
@@ -643,29 +658,34 @@ sub show_scores_table {
   @langs = keys(%langs);
 
   # Produce a report with a table with tuples {user,score}  
-  print '<div class="f95" style="overflow-x:scroll">'.
-    '<table border=0><tr><td valign=\'top\'>' .
-    '<table class="grid">' . 
-    "<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
 
   $show = 0;
   $show100 = 0;
-
+  $rows = '';
+  
   foreach $user (@users) {
-    print "<tr align=center>" . 
+    $rows .= "<tr align=center>" . 
       "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$scores{$user}</td></tr>";
     ($scores{$user} ne '-') && ($show++);
     ($scores{$user} =~ '>100%</a>$') && ($show100++);
   }
 
   $n = @users;
+
+  print '<div class="f95" style="overflow-x:scroll">'.
+    '<table border=0><tr><td valign=\'top\'>' .
+    '<table class="grid">';
+ 
   print '<tr align=center>' . 
     "<td class=\"grid\"><b>Total</b></td><td class=\"grid\" colspan=0>$n</td></tr>" .
-    '<tr align=center><td class="grid"><b>Submetidos</b><br><b>%</b></td>';
- 
-  printf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show,$n>0 ? 100*$show/$n : 0);
-  print '<tr align=center><td class="grid"><b>100</b><br><b>%</b></td>';
-  printf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show100,$show>0 ? 100*$show100/$show : 0);
+    '<tr align=center><td class="grid"><b>Submetidos</b></td>';
+  printf("<td class=\"grid\">%i (%.0f%%)</td></tr>",$show,$n>0 ? 100*$show/$n : 0);
+  print '<tr align=center><td class="grid"><b>100</b></td>';
+  printf("<td class=\"grid\">%i (%.0f%%)</td></tr>",$show100,$show>0 ? 100*$show100/$show : 0);
+  print "<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
+  
+  print $rows;
+  
   print '</table>';
 
 
@@ -1055,9 +1075,10 @@ sub submit_assignment {
       "onclick=\"wrap('dwn','$assign','$uid','$pdfs[$i]');\">$pdfs[$i]</a>&nbsp; ";
   }
 
-  $href = $cgi->url();
-  $href =~ s/\/[^\/]+$//;
-  $href .= '/google-code-prettify';
+  # $href = $cgi->url();
+  # $href =~ s/\/[^\/]+$//;
+  # $href .= '/google-code-prettify';
+  $href .= 'google-code-prettify';
   $rep .= "<link href=\"$href/prettify.css\" type=\"text/css\" rel=\"stylesheet\">" .
     "<script type=\"text/javascript\" src=\"$href/run_prettify.js?61\"></script>";
 
@@ -1118,11 +1139,12 @@ sub submit_assignment {
 	abort($uid,$assign,"submit : write $userd/Makefile : $!");
 
       print $MAKE "CC=$cfg{gcc}\n" .
+	'CFLAGS=' . $cfg{'gcc-args'} . "\n" .
 	'SRC=$(wildcard *.c)' . "\n" .
 	'elf: $(SRC:%.c=%.o)' . "\n" .
 	"\t" . '$(CC) ' . $cfg{'gcc-args'} . ' -o $@ $^' . "\n" .
 	"clean:\n" .
-	"\t/bin/rm -r *.o\n";
+	"\t/bin/rm -r *.o elf\n";
 
       close($MAKE);    
       $compcmd = "$cfg{'make'}";
@@ -1385,7 +1407,6 @@ sub submit_assignment {
   print end_html();
 
   ## Clean-up:
-  ($elff && -e $elff) && unlink($elff);
   ($outf && -e $outf) && unlink($outf);
   ($errf && -e $errf) && unlink($errf);
   
@@ -1867,7 +1888,7 @@ sub histogram {
 
 
   ### Drop to the file:
-  open(PNG, ">$png_file") || die("Unable to open $png_file");
+  open(PNG, ">$png_file") || die("Unable to write $png_file");
   print PNG $im->png;
   close(PNG);
 }
