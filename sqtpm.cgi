@@ -1673,7 +1673,7 @@ sub block_user {
 sub wanted_moss {
   -f && 
     !($File::Find::name =~ /\/backup\//) && 
-    (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/) && 
+    (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/|| /\.py$/) && 
     (push(@sources,"$File::Find::name"));
 }
 
