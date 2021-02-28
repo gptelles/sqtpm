@@ -1,4 +1,4 @@
-// This file is part of sqtpm 8.
+// This file is part of sqtpm 9.
 // Copyright 2003-2021 Guilherme P. Telles.
 // sqtpm is distributed under the terms of WTFPL v2.
 

@@ -12,10 +12,12 @@ cputime=$4
 virtmem=$5
 stkmem=$6
 
+date=`/bin/date +%d%b%y-%H%M%S`
+
 # Bail out if sqtpm VM is not registered:
 st=`/usr/bin/vboxmanage showvminfo sqtpm 2>/dev/null` 
 if [[ $? -ne 0 ]]; then
-  #echo $st >vm-showinfo.txt
+  echo "$date sqtpm-etc-vbox-shared.sh unable to get info on VM sqtpm." >>sqtpm-etc.log
   exit 129;
 fi
 
@@ -36,7 +38,6 @@ if [[ "$st"  == "paused" ]]; then
 fi
 
 # Create a temp dir:
-date=`/bin/date +%d%b%y-%H%M%S`
 dir="$date-$$"
 tmpd="$sharedd/$dir"
 userd="_${uid}_tmp_"
@@ -51,7 +52,7 @@ cd $assign &>/dev/null
 
 for inputf in *.in; do
   # Copy each input file, the elf and extra files to tmpd, invoke
-  # execution in the VM, and then move resulting files to the user
+  # execution in the VM, and then move the resulting files to the user
   # directory in the assignment:
 
   \cp $inputf $tmpd

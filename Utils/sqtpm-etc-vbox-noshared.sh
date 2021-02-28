@@ -10,13 +10,17 @@ cputime=$4
 virtmem=$5
 stkmem=$6
 
-if [[ `vboxmanage list runningvms | grep sqtpm | wc -l` != "1" ]]; then 
-  exit 1
-fi
-
-user='--username sqtpm --password senha'
 
 date=`/bin/date +%d%b%y-%H%M%S`
+
+st=`/usr/bin/vboxmanage showvminfo sqtpm 2>/dev/null` 
+if [[ $? -ne 0 ]]; then
+  echo "$date sqtpm-etc-vbox-noshared.sh unable to get info on VM sqtpm." >>sqtpm-etc.log
+  exit 129;
+fi
+
+
+user='--username sqtpm --password senha'
 tmpd="/home/sqtpm/$date-$$"
 
 vboxmanage guestcontrol sqtpm createdir $tmpd $user

@@ -18,7 +18,7 @@ tmpd="$date-$$"
 
 mkdir $assign/$userd/$tmpd 
 if [[ $? -ne 0 ]]; then
-  echo "mkdir $assign/$userd/$tmpd failed."
+  echo "$date sqtpm-etc-localhost.sh mkdir $assign/$userd/$tmpd failed." >>sqtpm-etc.log
   exit 129
 fi
 
@@ -41,7 +41,9 @@ for case in ${cases[@]}; do
   prefix=${case%\.in}
 
   if [[ "$lang" == "Python3" ]]; then 
-    bash -c "ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; python3 elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+    bash -c "ulimit -c 0 -t $cputime; python3 ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+  elif [[ "$lang" == "Java" ]]; then 
+    bash -c "ulimit -c 0 -t $cputime; java -jar ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
   else
     bash -c "ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
   fi

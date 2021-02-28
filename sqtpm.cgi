@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# This file is part of sqtpm 8.
+# This file is part of sqtpm 9.
 # Copyright 2003-2021 Guilherme P. Telles.
 # sqtpm is distributed under the terms of WTFPL v2.
 
@@ -372,7 +372,8 @@ sub show_statement {
     "Linguagens: $cfg{languages}";
 
   # Pascal, Fortran and Python3 are limited to a sigle source file:
-  ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Python3') && ($cfg{sources} = '1,1');
+  ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Python3') &&
+    ($cfg{sources} = '1,1');
 
   if (exists($cfg{sources})) {
     my @aux = split(/,/,$cfg{sources});
@@ -971,7 +972,7 @@ sub submit_assignment {
   # Check language:
   (!$language) && abort($uid,$assign,'Selecione uma linguagem.');
 
-  my %langs = ('C'=>0,'C++'=>0,'Fortran'=>0,'Pascal'=>0,'Python3'=>0,'PDF'=>0);
+  my %langs = ('C'=>0,'C++'=>0,'Fortran'=>0,'Pascal'=>0,'Python3'=>0,'Java'=>0,'PDF'=>0);
   
   (!exists($langs{$language})) && block_user($uid,$upassf,"submit: não há linguagem $language.");
 
@@ -989,11 +990,14 @@ sub submit_assignment {
   }
   else {
     (!exists($cfg{pdfs})) && ($cfg{pdfs} = '0,0');
-    %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Pascal'=>'pas','Fortran'=>'(f|F)','Python3'=>'py');
+    %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
+	     'Python3'=>'py','Java'=>'java');
     @sources = grep(/$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
     (!exists($cfg{sources})) && ($cfg{sources} = '1,9');
-    # Pascal and Fortran are limited to a sigle source file:
-    ($language eq 'Pascal' || $language eq 'Fortran') && ($cfg{sources} = '1,1');
+    
+    # Pascal, Fortran and Python are limited to a sigle source file:
+    ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') &&
+      ($cfg{sources} = '1,1');
   }
 
   $cfg{sources} =~ /(\d+),(\d+)/;
@@ -1008,6 +1012,19 @@ sub submit_assignment {
 	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
 	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.");
 
+  # A Main.java is required with Java:
+  if ($language eq 'Java') {
+    if (!exists($cfg{filenames})) {
+      $cfg{filenames} = "Main.java";
+    }
+    else {
+      if ($cfg{filenames} !~ /^Main.java / && $cfg{filenames} !~ / Main.java / && 
+	  $cfg{filenames} !~ /Main.java$/) {
+	$cfg{filenames} .= " Main.java";
+      }
+    }
+  }	
+  
   if (exists($cfg{filenames})) {
     my %names = ();
     my @aux = split(/ +/,$cfg{filenames});
@@ -1071,7 +1088,8 @@ sub submit_assignment {
   ### Get uploaded source files and documents:
   if (@pdfs) {
     %exts = ('PDF'=>'pdf', 'C'=>'(c|h|pdf)', 'C++'=>'(cpp|h|pdf)',
-	     'Pascal'=>'(pas|pdf)', 'Fortran'=>'(f|F|pdf)', 'Python3'=>'(py|pdf)');
+	     'Pascal'=>'(pas|pdf)', 'Fortran'=>'(f|F|pdf)', 
+	     'Python3'=>'(py|pdf)', 'Java'=>'(java|pdf)');
   }
 
   my @fh = upload('source');
@@ -1192,6 +1210,32 @@ sub submit_assignment {
       close($MAKE);    
       $compcmd = "$cfg{'make'}";
     }
+    elsif ($language eq 'Python3') {
+      (!-x $cfg{python3}) && abort($uid,$assign,"submit: $cfg{python3} inválido");
+
+      (!exists($cfg{'python3-args'})) && ($cfg{'python3-args'} = '');
+      $compcmd = "$cfg{python3} $cfg{'python3-args'} -m py_compile $sources[0]";
+    }
+    elsif ($language eq 'Java') {
+      (!-x "$cfg{jdk}/javac") && abort($uid,$assign,"submit: $cfg{jdk}/javac inválido");
+      (!-x "$cfg{jdk}/jar") && abort($uid,$assign,"submit: $cfg{jdk}/jar inválido");
+
+      (!exists($cfg{'javac-args'})) && ($cfg{'javac-args'} = '');
+
+      open(my $MF,'>',"$userd/manifest.txt") ||
+	abort($uid,$assign,"submit: write $userd/manifest.txt: $!");
+      print $MF "Main-Class: Main\n";
+      close($MF);
+
+      open(my $MAKE,'>',"$userd/Makefile") ||
+	abort($uid,$assign,"submit: write $userd/Makefile: $!");
+
+      print $MAKE "elf: \n" . 
+	 "\t$cfg{'jdk'}/javac $cfg{'javac-args'} *.java; $cfg{'jdk'}/jar cvfm elf manifest.txt *.class\n";
+
+      close($MAKE);
+      $compcmd = "$cfg{'make'}";
+    }
     elsif ($language eq 'C++') {
       (!-x $cfg{'g++'}) && abort($uid,$assign,"submit: $cfg{'g++'} inválido");
 
@@ -1219,12 +1263,6 @@ sub submit_assignment {
 
       (!exists($cfg{'gpc-args'})) && ($cfg{'gpc-args'} = '');
       $compcmd = "$cfg{gpc} $cfg{'gpc-args'} --executable-file-name=elf --automake $sources[0]";
-    }
-    elsif ($language eq 'Python3') {
-      (!-x $cfg{python3}) && abort($uid,$assign,"submit: $cfg{python3} inválido");
-
-      (!exists($cfg{'python3-args'})) && ($cfg{'python3-args'} = '');
-      $compcmd = "$cfg{python3} -m py_compile $sources[0]";
     }
 
 
@@ -1454,8 +1492,10 @@ sub submit_assignment {
     (-e $outf) && unlink($outf);
     (-e $errf) && unlink($errf);
     
-    unlink(glob "$userd/*.o");
-    
+    ($language eq 'Java') && unlink(glob "$userd/*.class");
+
+    ($language ne 'Python3') && unlink(glob "$userd/*.o");
+      
     foreach my $case (@test_cases) {
       (-e "$userd/$case.run.st")  && unlink("$userd/$case.run.st");
       (-e "$userd/$case.run.out") && unlink("$userd/$case.run.out");
