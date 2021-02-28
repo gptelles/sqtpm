@@ -1,4 +1,4 @@
-v2:
+>v2:
 -New error messages
 -Fortran added
 -penalty directive for delayed practice added 
@@ -63,3 +63,6 @@ v8
 -fixed a bug in grades table that displayed users of other assignments.
 -user order in tables changed to users-file order instead of lexicographic.
 -moved some subs around, just for fun.
+
+v9
+-Java added.
