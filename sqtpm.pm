@@ -24,7 +24,6 @@ require Exporter;
              load_rep_data
              write_lc_file
 
-             abort_login
              abort
              abort_pwd
 
