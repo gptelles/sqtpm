@@ -1810,6 +1810,31 @@ sub print_html_file {
 
 
 ####################################################################################################
+# abort_login($uid, $message)
+#
+# Print an html error page with message, write to log and exit.
+
+sub abort_login {
+
+  my $uid = shift;
+  my $mess = shift;
+  
+  print header();
+  print start_html(-title=>'sqtpm', 
+		   -style=>{-src=>['sqtpm.css']},
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
+  
+  print '<div class="f85"><h1>sqtpm</h1>';
+  print '<p>', $mess, '</p><hr><a href="sqtpm.cgi">sqtpm</a></div>';
+  print end_html();
+  add_to_log($uid,'',$mess);
+
+  exit(1);
+}
+
+
+
+####################################################################################################
 # block_user($user, $pass_file, $messsage)
 #
 # Block a user by commenting its line in the pass file, write message
