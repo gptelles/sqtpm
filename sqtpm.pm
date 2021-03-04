@@ -252,6 +252,7 @@ sub load_keys_values {
 
   while (<$FILE>) {
     chomp;
+    (/^\s*$/) && next;
     $_ = (split(/#/,$_,2))[0];
     (/^\s*$/) && next;
     my ($key,$value) = split(/${sep}/,$_,2);

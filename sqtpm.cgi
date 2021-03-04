@@ -10,7 +10,7 @@ use CGI::Session::Driver::file;
 $CGI::LIST_CONTEXT_WARN = 0; 
 
 use LWP::Simple ();
-use Cwd qw(cwd);
+use Cwd qw(cwd getcwd);
 use Fcntl ':flock';
 use File::Basename;
 use File::Find;
@@ -24,23 +24,28 @@ use sqtpm;
 
 $CGI::POST_MAX = 100000; # bytes
 
-my $sessiond = '/tmp';
-$CGI::Session::Driver::file::FileName = 'sqtpm-%s';  
-
 umask(0007);
 
 
 # Globals:
-my $cgi = CGI->new;
-my $session = 0;
 my %sys_cfg = ();
 
+my $cgi = CGI->new;
+my $session = 0;
 
-# Try to retrieve session id from user agent:
+my $sprefix = getcwd();
+$sprefix =~ s/^\///;
+$sprefix =~ s/\//-/g;
+$sprefix = "sqtpm-$sprefix";
+
+my $sessiond = '/tmp';
+$CGI::Session::Driver::file::FileName = $sprefix . '-%s';  
+
+# Try to retrieve session id:
 my $sid = $cgi->cookie('CGISESSID') || $cgi->param('CGISESSID') || undef;
 
 # If the session id exists but the file don't then it must get a new session:
-(defined($sid) && !-f "$sessiond/sqtpm-$sid") && (undef $sid);
+(defined($sid) && !-f "$sessiond/$sprefix-$sid") && (undef $sid);
 
 my $action = param('action');
 
