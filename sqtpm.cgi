@@ -841,11 +841,11 @@ sub show_all_grades_table {
 
   print_html_start();
   
-  ($utype ne 'P') && block_user($uid,$upassf,"show_all: $uid é estudante.");
+  ($utype ne 'P') && block_user($uid,$upassf,"show_all: $uid não é professor.");
 
   # Get a list of assignments for the user:
   opendir(my $DIR,'.') || abort($uid,'','all_grades: opendir root: $!');
-  my @amnts = sort(grep { -d $_ && !/^\./ && -f "$_/config" && -l "$_/$upassf" } readdir($DIR));
+  my @amnts = sort(grep { -d $_ && !/^\./ && -f "$_/config" && -l "$_/$passf" } readdir($DIR));
   close($DIR);
   
   if (@amnts == 0) {
