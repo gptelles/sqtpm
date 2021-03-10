@@ -1649,7 +1649,7 @@ sub invoke_moss {
 
     open(my $MOSS,'<',"$assign/moss.run") || abort($uid,$assign,"moss: open $assign/moss.run: $!");
     my @out = <$MOSS>;
-    close(MOSS);
+    close($MOSS);
     $url = $out[-1];
 
     if ($url !~ /^http:/) {
