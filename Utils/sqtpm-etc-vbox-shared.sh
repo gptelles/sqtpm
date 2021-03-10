@@ -17,7 +17,7 @@ date=`/bin/date +%d%b%y-%H%M%S`
 # Bail out if sqtpm VM is not registered:
 st=`/usr/bin/vboxmanage showvminfo sqtpm 2>/dev/null` 
 if [[ $? -ne 0 ]]; then
-  echo "$date sqtpm-etc-vbox-shared.sh unable to get info on VM sqtpm." >>sqtpm-etc.log
+  echo "$date sqtpm-etc-vbox-shared.sh unable to get info on VM sqtpm." 2>&1 >>sqtpm-etc.log
   exit 129;
 fi
 
