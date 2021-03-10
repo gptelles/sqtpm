@@ -1612,9 +1612,9 @@ sub invoke_moss {
   
   if (-f "$assign/moss.run") {
     # Check if last moss run is up and whether there is a newer source:
-    open(my $OUT,'<',"$assign/moss.run") || abort($uid,$assign,"moss: open $assign/moss.run: $!");
-    my @out = <$OUT>;
-    close($OUT);
+    open(my $MOSS,'<',"$assign/moss.run") || abort($uid,$assign,"moss: open $assign/moss.run: $!");
+    my @out = <$MOSS>;
+    close($MOSS);
     $url = $out[-1];
 
     if (LWP::Simple::head("$url")) {
@@ -1647,9 +1647,9 @@ sub invoke_moss {
 
     ($st) && abort($uid,$assign,"moss: system $cmd: $!");
 
-    open(my $OUT,'<',"$assign/moss.run") || abort($uid,$assign,"moss: open $assign/moss.run: $!");
-    my @out = <OUT>;
-    close(OUT);
+    open(my $MOSS,'<',"$assign/moss.run") || abort($uid,$assign,"moss: open $assign/moss.run: $!");
+    my @out = <$MOSS>;
+    close(MOSS);
     $url = $out[-1];
 
     if ($url !~ /^http:/) {
