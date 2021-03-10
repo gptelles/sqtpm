@@ -304,7 +304,7 @@ sub home {
       
       for (my $j=0; $j<@groups; $j++) {
       	$tab .= '<a href="javascript:;" ' .
-	  "onclick=\"wrap('asc','$groups[$j]');\">$groups[$j]</a>&nbsp;";
+	  "onclick=\"wrap('asc','$groups[$j]');\">$groups[$j]</a>&nbsp; ";
       }
       $tab .= '';#'</p>';
     }
