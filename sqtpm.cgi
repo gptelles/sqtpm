@@ -232,7 +232,7 @@ sub home {
 	    "onclick=\"wrap('scr','$group','$assign[$i]');\">$group</a>&nbsp; ";
 	  $groups{$group} = 1;
 	}
-	$tab .= '</td>';
+	$tab =~ s/&nbsp; $/<\/td>/;
       }
 
       # State:
