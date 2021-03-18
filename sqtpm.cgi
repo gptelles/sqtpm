@@ -212,7 +212,11 @@ sub home {
       my %cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
 
       # If this is a student and the assignment is still closed, skip it:
-      ($utype eq 'S' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && next;
+      if ($utype eq 'S' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
+	splice(@assign,$i,1);
+	$i--;  
+	next;
+      }
       
       # Assignment tag:
       $tab .= '<tr align="center"><td class="grid">' .
@@ -294,7 +298,7 @@ sub home {
     if (@assign == 0) {
       $tab = "<p>Não há trabalhos para $uid.</p>";
     }
-
+    
     # Links for grade tables:
     my @groups = sort keys(%groups);
     
