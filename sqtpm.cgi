@@ -242,7 +242,7 @@ sub home {
       # State:
       $tab .= "<td class=\"grid\">";
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
-	$tab .= '<font color="Tomato">fechado</font>';
+	$tab .= '<font color="DarkOrange">fechado</font>';
       }
       elsif (exists($cfg{deadline})) {
 	my $days = elapsed_days($cfg{deadline});
@@ -412,7 +412,14 @@ sub show_statement {
   if (exists($cfg{deadline})) {
     $days = elapsed_days($cfg{deadline}); 
     print "<br>Data limite para envio: $cfg{deadline}";
-    ($days*$cfg{penalty} >= 100) && print ' (encerrado)';
+    if ($days*$cfg{penalty} >= 100) {
+      print ' (encerrado)';
+      if ($days <= $cfg{'keep-open'}) {
+	print '<font color="MediumBlue">'.
+	  '<br>Aberto para envio que não substitui o último envio no prazo.</font>';
+      }
+    }
+	
     ($cfg{penalty} < 100) && print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
   }
   
@@ -1082,7 +1089,7 @@ sub submit_assignment {
   }
 
   ($utype eq 'S' && $dryrun) && 
-    ($rep .= "\n<br><b>O prazo terminou. Este envio não será registrado.</b>");
+    ($rep .= "\n<br><b>O prazo terminou. Este envio não substituirá o último no prazo.</b>");
   
   ($utype eq 'P') && ($rep .= "\n<br>$uid: envios sem restrições de linguagem e prazo.");
 
