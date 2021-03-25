@@ -9,7 +9,6 @@ require Exporter;
 
 @EXPORT = qw(
              authenticate
-             check_assign_access
 
              add_to_log
 
@@ -102,26 +101,6 @@ sub authenticate {
   $encpwd ne sha512_base64($typedpwd) && (return ('',''));
 
   return ($utype,$file);
-}
-
-
-
-####################################################################################################
-# int check_assign_access($user, $pass_file, $assignment)
-#
-# Verify whether the user has an assignment, that is, whether the pass file
-# (that should contain the user) is linked to an assignment.
-# Return 1 if it is or invoke block_user() on the user otherwise.
-
-sub check_assign_access {
-
-  my $uid = shift;
-  my $upassf = shift;
-  my $assign = shift;
-
-  (-d $assign && -e "$assign/$upassf") && (return 1);
-
-  block_user($uid,$upassf,"check_assign: $upassf não está em $assign.");
 }
 
 

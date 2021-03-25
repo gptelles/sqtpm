@@ -605,9 +605,10 @@ sub show_grades_table {
 
   check_assign_access($uid,$upassf,$assign);
 
-  my $tabfile = "$assign/grades.$passf";
+  my $tabfile = "$assign/$passf";
   $tabfile =~ s/\.pass$//;
-
+  $tabfile .= ".grades"; 
+  
   my $tab;
 
   # If the table exists already, load it from file.
@@ -1535,8 +1536,10 @@ sub submit_assignment {
   print end_html();
 
   # Remove grades report to force future update, if any:
-  my $tabfile = "$assign/grades.$upassf";
+  my $tabfile = "$assign/$upassf";
   $tabfile =~ s/\.pass$//;
+  $tabfile .= ".grades";
+  
   (-f $tabfile) && unlink($tabfile);
   
   ### Move previous assignment and rename $userd:
@@ -1846,6 +1849,26 @@ sub abort_login {
   add_to_log($uid,'',$mess);
 
   exit(1);
+}
+
+
+
+####################################################################################################
+# int check_assign_access($user, $pass_file, $assignment)
+#
+# Verify whether the user has an assignment, that is, whether the pass file
+# (that should contain the user) is linked to an assignment.
+# Return 1 if it is or invoke block_user() on the user otherwise.
+
+sub check_assign_access {
+
+  my $uid = shift;
+  my $upassf = shift;
+  my $assign = shift;
+
+  (-d $assign && -e "$assign/$upassf") && (return 1);
+
+  block_user($uid,$upassf,"check_assign: $upassf não está em $assign.");
 }
 
 
