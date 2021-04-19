@@ -191,7 +191,8 @@ sub home {
     
     # Grab assignments for the user:
     opendir(my $DIR,'.') || abort('','','home: opendir root: $!');
-    my @assign = sort(grep {-d $_ && !/^\./ && -e "$_/config" && -l "$_/$upassf" && stat("$_/$upassf")} 
+    my @assign = sort(grep
+		      {-d $_ && !/^\./ && -e "$_/config" && -l "$_/$upassf" && stat("$_/$upassf")} 
 		      readdir($DIR));
     close($DIR);
     
@@ -223,7 +224,9 @@ sub home {
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign[$i]');\">$assign[$i]</a></td>";
 
       opendir($DIR,$assign[$i]) || abort($uid,$assign[$i],"home: opendir $assign[$i]: $!");
-      my @group = sort(grep {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")} readdir($DIR));
+      my @group = sort(grep
+		       {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")}
+		       readdir($DIR));
       close($DIR);
       
       # Groups:
@@ -248,13 +251,13 @@ sub home {
 	my $days = elapsed_days($cfg{deadline});
 	if ($days*$cfg{penalty} < 100) {
 	  $tab .= '<font color="MediumBlue">aberto</font>';
-	}
-	elsif ($days <= $cfg{'keep-open'}) {
+	}      
+	elsif ($days <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
 	  $tab .= '<font color="MediumBlue">encerrado</font>';
 	}
 	else {
 	  $tab .= 'encerrado';
-	}	  
+	}   
       }
       else {
 	$tab .= '<font color="MediumBlue">aberto</font>'
@@ -264,13 +267,13 @@ sub home {
       # Startup:
       if ($utype eq 'P') {
 	$tab .= "<td class=\"grid\">";
-	$tab .= (exists($cfg{startup}) ? dow($cfg{startup}) . " &nbsp;$cfg{startup}" : 'não há');
+	$tab .= (exists($cfg{startup}) ? dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup}) : 'não há');
 	$tab .= '</td>';
       }
       
       # Deadline:
       $tab .= "<td class=\"grid\">";
-      $tab .= exists($cfg{deadline}) ? dow($cfg{deadline}) . " &nbsp;$cfg{deadline}" : 'não há ';
+      $tab .= exists($cfg{deadline}) ? dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há ';
       $tab .= '</td>';
 
       if ($utype eq 'S') {
@@ -374,49 +377,48 @@ sub show_statement {
 
   # If the assignment is not open yet and the user is a student, this is strange:
   ($utype ne 'P' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) && 
-    block_user($uid,$upassf,"show_st: o prazo para enviar $assign não começou.");
+    block_user($uid,$upassf,"show_st: o prazo para enviar $assign não começou");
 
   print "<b>Trabalho:</b> $assign" .
     '<table><tr><td style="vertical-align:top">' .
     "Linguagens: $cfg{languages}";
 
-  # Pascal, Fortran and Python3 are limited to a sigle source file:
-  ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Python3') &&
-    ($cfg{sources} = '1,1');
-
-  if (exists($cfg{sources})) {
-    my @aux = split(/,/,$cfg{sources});
-    print "<br>Arquivos-fonte a enviar: " . 
-      ($aux[0] == $aux[1] ? "$aux[0]" : "entre $aux[0] e $aux[1]");
+  # Pascal, Fortran and Python are limited to a sigle source file:
+  if ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') {
+    ($cfg{files} = '1,1');
   }
 
-  if (exists($cfg{pdfs})) {
-    my @aux = split(/,/,$cfg{pdfs});
-    print "<br>Arquivos pdf a enviar: " . 
-      ($aux[0] == $aux[1] ? "$aux[0]" : "entre $aux[0] e $aux[1]");
-  }
-
+  # Accept 10 files as default:
+  (!exists($cfg{files})) && ($cfg{files} = '1,10');
+   
+  my @aux = split(/,/,$cfg{files});
+  print "<br>Arquivos a enviar: " . 
+    ($aux[0] == $aux[1] ? "$aux[0]" : "entre $aux[0] e $aux[1]");
+  
   if (exists($cfg{filenames})) {
-    my @aux = split(/ +/,$cfg{filenames});
+    @aux = split(/ +/,$cfg{filenames});
     for (my $i=0; $i<@aux; $i++) {
       $aux[$i] =~ s/\{uid\}/$uid/;
       $aux[$i] =~ s/\{assign\}/$assign/;
     }
-    print "<br>Envie arquivos com nomes: @aux.";
+    print "<br>Enviar arquivos com nomes: @aux";
   }
 
-  (exists($cfg{startup})) && print "<br>Data de abertura: $cfg{startup}";
+  (exists($cfg{startup})) && print "<br>Data de abertura: " . br_date($cfg{startup});
+
+  # dryrun of PDF will not be possible:
+  ($cfg{languages} =~ /PDF/) && ($cfg{'keep-open'} = 0);
 
   my $days = 0;
 
   if (exists($cfg{deadline})) {
     $days = elapsed_days($cfg{deadline}); 
-    print "<br>Data limite para envio: $cfg{deadline}";
+    print "<br>Data limite para envio: ", br_date($cfg{deadline});
     if ($days*$cfg{penalty} >= 100) {
       print ' (encerrado)';
       if ($days <= $cfg{'keep-open'}) {
 	print '<font color="MediumBlue">'.
-	  '<br>Aberto para envio que não substitui o último envio no prazo.</font>';
+	  '<br>Aberto para envio que não substitui o último envio no prazo</font>';
       }
     }
 	
@@ -446,7 +448,8 @@ sub show_statement {
     my %rep = load_rep_data("$assign/$uid/$uid.rep");
     if (exists($rep{grade})) {
       print "<p><b>Último envio:</b> " .
-	"<a href=\"javascript:;\" onclick=\"wrap('rep','$assign');\">$rep{grade}</a> em $rep{at}" .
+	"<a href=\"javascript:;\" onclick=\"wrap('rep','$assign');\">$rep{grade} em " .
+	br_date($rep{at}) . "</a>" .
 	"<br>Envios: $rep{tries}"; 
     }
   }
@@ -467,7 +470,7 @@ sub show_statement {
   # Groups:
   if ($utype eq 'P') {
     opendir(my $DIR,$assign) || abort($uid,$assign,"home: opendir $assign: $!");
-    my @aux = sort(grep {/\.pass$/ && -l "$assign/$_" && stat("$assign/$_")} readdir($DIR));
+    @aux = sort(grep {/\.pass$/ && -l "$assign/$_" && stat("$assign/$_")} readdir($DIR));
     close($DIR);
     
     print '<p><b>Grupos:</b><br>&nbsp;';
@@ -480,7 +483,7 @@ sub show_statement {
   }
 
   if ($open) {
-    my @aux = split(/ +/,$cfg{languages});
+    @aux = split(/ +/,$cfg{languages});
 
     print "<input type=\"hidden\" name=\"submassign\" value=\"$assign\">" .
       '<p><b>Enviar:</b></p>' .
@@ -568,6 +571,9 @@ sub download_file {
   }
   else {
     if ($utype eq 'S') {
+      if ($suid ne $uid) {
+	block_user($uid,$upassf,"download_file: $suid e $uid são diferentes.");
+      }
       $file = "$assign/$uid/$file";
       if (!-f $file) {
 	block_user($uid,$upassf,"download_file: $assign/$uid/$file não existe.");
@@ -621,16 +627,16 @@ sub show_grades_table {
     close($F);
   }
   else {
-    $tab = "<p><b>Acertos para $passf em $assign:</b>";
-
     my @langs;
     my %langs;
     my %grades;
     
     # Get users:
     my @users = load_keys($passf,':');
+    my $n = @users;
+    
     if (@users == 0) {
-      $tab .= '<p>Nenhum usuário em $passf.</p>';
+      $tab = '<p><b>Não há usuários em $passf.</p>';
     }
     else {
       (!%sys_cfg) && (%sys_cfg = load_keys_values('sqtpm.cfg'));
@@ -644,6 +650,8 @@ sub show_grades_table {
 	$users[$i] =~ s/^[\*@]?//;
       }    
 
+      $tab = "<p><b>Acertos para os $n usuários de $passf em $assign:</b>";
+      
       foreach my $user (@users) {
 	my %rep = load_rep_data("$assign/$user/$user.rep");
 
@@ -676,22 +684,20 @@ sub show_grades_table {
 	($grades{$user} =~ '>100</a>$') && ($show100++);
       }
 
-      my $n = @users;
-
-      $tab .= '<div class="f95" style="overflow-x:scroll">'.
+      $tab .= '<div class="f95">'.
 	'<table border=0><tr><td valign=\'top\'>' .
 	'<table class="grid">' .
-	'<tr align=center>' . 
-	"<td class=\"grid\"><b>Total</b></td><td class=\"grid\" colspan=0>$n</td></tr>" .
-	'<tr align=center><td class="grid"><b>Submetidos</b></td>' .
+	'<tr align=center><td class="grid"><b>enviados</b></td>' .
 	sprintf("<td class=\"grid\">%i (%.0f%%)</td></tr>",$show,$n>0?100*$show/$n:0) .
-	'<tr align=center><td class="grid"><b>100</b></td>' .
+	'<tr align=center><td class="grid"><b>100%</b></td>' .
 	sprintf("<td class=\"grid\">%i (%.0f%%)</td></tr>",$show100,$show>0?100*$show100/$show:0) .
-	"<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>" .
+	"<tr align=center><td class=\"grid\" colspan=2></td></tr>".
+	"<tr><th class=\"grid\">usuário</th><th class=\"grid\">$assign</th></tr>" .
+	"<tr align=center><td class=\"grid\" colspan=2></td></tr>".
 	$rows .
 	'</table>';
 
-      @langs = keys(%langs);
+      @langs = sort(keys(%langs));
       (@langs == 1) && ($tab .= "<p>Todos em $langs[0].");
       $tab .= '</td>';
 
@@ -784,12 +790,11 @@ sub show_grades_table {
 	  
 	  $tab .= '<td valign=\'top\'>' .
 	    '<img src="data:image/png;base64,' .
-	    encode_base64(histogram($size<30 ? 600 : $size*25,360,\%freq,\%freq100)) .
-	    '" style="border:0;padding: 0px 0px 0px 20px">' .
-	    '';
+	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) .
+					'" style="border:0;padding: 0px 0px 0px 20px">';
 
 	  $tab .= '<img src="data:image/png;base64,' .
-	    encode_base64(histogram($size<30 ? 600 : $size*25,360,\%frequniq,\%freq100uniq)) .
+	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%frequniq,\%freq100uniq)) .
 	    '" style="border:0;padding: 0px 0px 0px 20px">' .
 	    '</td>';
 	}
@@ -798,14 +803,15 @@ sub show_grades_table {
     }
 
     if (@langs > 1) {
-      # Produce a report with a table with tuples {user,grade} for each language:  
-      $tab .= "<p>&nbsp;</p><b>Acertos para $passf em $assign por linguagem:</b>" .
-	'<table border=0><tr>';
+      # Produce the report with a table with tuples {user,grade} for each language:  
+      $tab .= "<p>&nbsp;</p><b>Acertos para $passf em $assign por linguagem de programação:</b>" .
+	'<p><table border=0><tr>';
 
       for my $k (@langs) {
-	$tab .= "<td valign='top'><b>$k:</b>" .
-	  '<div class="f95"><table class="grid">' . 
-	  "<tr><th class=\"grid\">Usuário</th><th class=\"grid\">$assign</th></tr>";
+	$tab .= "<td valign='top'>" .
+	  '<table class="grid">' . 
+	  "<tr><th class=\"grid\">usuário</th><th class=\"grid\">$k</th></tr>" .
+	  "<tr align=center><td class=\"grid\" colspan=2></td></tr>" ;
 
 	my $show = 0;
 	my $show100 = 0;
@@ -816,16 +822,15 @@ sub show_grades_table {
 	    "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
 	  
 	  ($grades{$user} ne '-') && ($show++);
-	  ($grades{$user} =~ '>100%</a>$') && ($show100++);
+	  ($grades{$user} =~ '>100</a>$') && ($show100++);
 	}
 	
 	my $n = @users;
-	$tab .= "<tr align=center><td class=\"grid\"><b>Total</b></td><td class=\"grid\">$n</td></tr>" .
-	  '<tr align=center><td class="grid"><b>Submetidos</b><br><b>%</b></td>' .
-	  sprintf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show,$n>0?100*$show/$n:0) .
-	  '<tr align=center><td class="grid"><b>100</b><br><b>%</b></td>' .
-	  sprintf("<td class=\"grid\">%i<br>%.0f</td></tr>",$show100,$show>0?100*$show100/$show:0) .
-	  '</table></div>' .
+	$tab .= '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>' .
+	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",$show,$n,$n>0?100*$show/$n:0) .
+	  '<tr align=center><td class="grid"><b>100%</b><br><b>%</b></td>' .
+	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",$show100,$show,$show>0?100*$show100/$show:0) .
+	  '</table>' .
 	  '</td><td></td>';
       }
     }
@@ -865,8 +870,6 @@ sub show_all_grades_table {
     print_html_end();
   }
 
-  print "<p><b>Acertos para $passf:</b></p>";
-
   # Get users:
   my @users = load_keys($passf,':');
 
@@ -895,46 +898,56 @@ sub show_all_grades_table {
     }
   }
 
-  # Print a report with a table with tuples {user,grade,grade,...} and summaries:
-  print '<div style="overflow-x:scroll"><div class="f95">' .
-    '<table class="grid"><tr><th class="grid">Usuário</th>';
-
   my %show = ();
   my %show100 = ();
-
-  foreach my $amnt (@amnts) {
-    print "<th class=\"grid\">$amnt";
-    $show{$amnt} = 0;
-    $show100{$amnt} = 0;
+  my $n = @users;
+  
+  foreach my $user (@users) {
+    foreach my $amnt (@amnts) {
+      ($grades{$amnt}{$user} ne '-') && ($show{$amnt}++);
+      ($grades{$amnt}{$user} =~ '>100</a>$') && ($show100{$amnt}++);
+    }
   }
+
+  # Print a table with tuples {user,grade,grade,...} and summaries:
+  print "<p><b>Acertos para $n usuários em $passf:</b></p>";
+
+  print '<div style="overflow-x:scroll"><div class="f95">' .
+    '<table class="grid">';
+
+  print '<tr align=center><td class="grid"><b>enviados</b></td>';
+  #print '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>';
+  foreach my $amnt (@amnts) {
+    printf("<td class=\"grid\">%i (%.0f\%)</td>",$show{$amnt},$n>0?100*$show{$amnt}/$n:0);
+  }
+  print '</tr>';
+    
+  print '<tr align=center><td class="grid"><b>100%</b></td>';
+  foreach my $amnt (@amnts) {
+    printf("<td class=\"grid\">%i (%.0f\%)</td>",
+	   $show100{$amnt},$show{$amnt}>0?100*$show100{$amnt}/$show{$amnt}:0);
+  }
+  print '</tr>';
+
+  print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
+
+  print '<tr><th class="grid">usuário</th>';
+  foreach my $amnt (@amnts) {
+    print "<th class=\"grid\">$amnt</th>";
+  }
+  print '</tr>';
+
+  print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
 
   foreach my $user (@users) {
     print "<tr align=center><td class=\"grid\"><b>$user</b>";
     foreach my $amnt (@amnts) {
       print "<td class=\"grid\">$grades{$amnt}{$user}</td>";
-      ($grades{$amnt}{$user} ne '-') && ($show{$amnt}++);
-      ($grades{$amnt}{$user} =~ '>100</a>$') && ($show100{$amnt}++);
     }
     print '</tr>';
   }
 
-  my $n = @users;
-  print "<tr align=center>" . 
-    "<td class=\"grid\" colspan=$n></td></tr>" .
-    '<tr align=center><td class="grid"><b>Submetidos</b><br><b>%</b></td>';
-
-  foreach my $amnt (@amnts) {
-    printf("<td class=\"grid\">%i / %i<br>%.0f</td>",
-	   $show{$amnt},$n,$n>0?100*$show{$amnt}/$n:0);
-  }
-
-  print '</tr><tr align=center><td class="grid"><b>100</b><br><b>%</b></td>';
-  foreach my $amnt (@amnts) {
-    printf("<td class=\"grid\">%i / %i<br>%.0f</td>",
-	   $show100{$amnt},$show{$amnt},$show{$amnt}>0?100*$show100{$amnt}/$show{$amnt}:0);
-  }
-
-  print '</tr></table></div></div>';
+  print '</table></div></div>';
   print_html_end();
 }
 
@@ -969,6 +982,9 @@ sub submit_assignment {
   my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
   my $deaddays = exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0;
+
+  # dryrun of PDF will not be possible:
+  ($language eq 'PDF') && ($cfg{'keep-open'} = 0);
   
   # Check whether the assignment is open:
   if ($utype eq 'S') {    
@@ -991,56 +1007,46 @@ sub submit_assignment {
 
   my %langs = ('C'=>0,'C++'=>0,'Fortran'=>0,'Pascal'=>0,'Python3'=>0,'Java'=>0,'PDF'=>0);
   
-  (!exists($langs{$language})) && block_user($uid,$upassf,"submit: não há linguagem $language.");
+  (!exists($langs{$language})) &&
+    block_user($uid,$upassf,"submit: não há linguagem $language.");
 
   (!grep(/$language/,split(/\s+/,$cfg{languages}))) && 
     block_user($uid,$upassf,"submit: $assign não pode ser enviado em $language.");
   
   # Check the number of uploading files and their names: 
-  my @pdfs = grep(/\.pdf$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);
-  my %exts;
-  my @sources;
+  my %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
+	      'Python3'=>'py','Java'=>'java','PDF'=>'pdf');
   
-  if ($language eq 'PDF') {
-    $cfg{sources} = '0,0';
-    (!exists($cfg{pdfs})) && ($cfg{pdfs} = '1,1');
-  }
-  else {
-    (!exists($cfg{pdfs})) && ($cfg{pdfs} = '0,0');
-    %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
-	     'Python3'=>'py','Java'=>'java');
-    @sources = grep(/$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
-    (!exists($cfg{sources})) && ($cfg{sources} = '1,9');
-    
-    # Pascal, Fortran and Python are limited to a sigle source file:
-    ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') &&
-      ($cfg{sources} = '1,1');
+  my @sources = grep(/\.$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
+
+  # Pascal, Fortran and Python are limited to a sigle source file:
+  if ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') {
+    ($cfg{files} = '1,1');
   }
 
-  $cfg{sources} =~ /(\d+),(\d+)/;
-  (@sources < $1 || @sources > $2) && 
-    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos-fonte. ' .
-	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
-	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.");
+  # Accept up to 10 files as default:
+  (!exists($cfg{files})) && ($cfg{files} = '1,10');
 
-  $cfg{pdfs} =~ /(\d+),(\d+)/;
-  (@pdfs < $1 || @pdfs > $2) && 
-    abort($uid,$assign,'Envie ' . ($1 == $2 ? "$1" : "de $1 a $2") . ' arquivos pdf. ' .
+  $cfg{files} =~ /(\d+),(\d+)/;
+  if (@sources < $1 || @sources > $2) {
+    my $mess = 'Envie ' . ($1 == $2 ? ($1==1) ? "1 arquivo." : "$1 arquivos." : "de $1 a $2 arquivos.");
+    print $mess .
 	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
-	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.");
+	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.";
+    abort($uid,$assign,"Incorrect number of files",1);
+  }
 
-  # A Main.java is required with Java:
+  # A Main.java is required for Java:
   if ($language eq 'Java') {
     if (!exists($cfg{filenames})) {
       $cfg{filenames} = "Main.java";
     }
     else {
-      if ($cfg{filenames} !~ /^Main.java / && $cfg{filenames} !~ / Main.java / && 
-	  $cfg{filenames} !~ /Main.java$/) {
+      if (" $cfg{filenames} " !~ / Main.java /) {
 	$cfg{filenames} .= " Main.java";
       }
     }
-  }	
+  }
   
   if (exists($cfg{filenames})) {
     my %names = ();
@@ -1065,7 +1071,7 @@ sub submit_assignment {
     $tries = $rep{tries};
   }
 
-  # Submiting a non-updating assignment will only be possible if a valid submission 
+  # Submiting a dry-run assignment will only be possible if a valid submission 
   # has been done previously:
   ($dryrun && $tries == 0) &&
     abort($uid,$assign,"O prazo para $assign terminou. Você não pode enviá-lo pela primeira vez.");
@@ -1078,13 +1084,12 @@ sub submit_assignment {
   my $userd = "$assign/_${uid}_tmp_";
   mkdir($userd) || abort($uid,$assign,"submit: mkdir " . cwd() . " $userd: $!");
   
-
   ### Report header:
   my $rep = "<b>Usuário: $uid</b>";
   $rep .= "\n<br><b>Trabalho: $assign</b>";
 
   if (exists($cfg{deadline})) {
-    $rep .= "\n<br>Data limite para envio: $cfg{deadline}";
+    $rep .= "\n<br>Data limite para envio: " . br_date($cfg{deadline});
     ($deaddays*$cfg{penalty} >= 100) && ($rep .= ' (encerrado)');
     ($cfg{penalty} < 100) && ($rep .= "\n<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
@@ -1097,21 +1102,16 @@ sub submit_assignment {
   my $now = format_epoch(time);
 
   $tries++;
-  $rep .= "\n<br>Este envio: $tries&ordm;, $now";
+  $rep .= "\n<br>Este envio: $tries&ordm;, " . br_date($now);
 
   $rep .= "\n<br>Linguagem: $language";
   $rep .= (@uploads == 1 ? "<br>Arquivo: " : "\n<br>Arquivos: ");
 
-  ### Get uploaded source files and documents:
-  if (@pdfs) {
-    %exts = ('PDF'=>'pdf', 'C'=>'(c|h|pdf)', 'C++'=>'(cpp|h|pdf)',
-	     'Pascal'=>'(pas|pdf)', 'Fortran'=>'(f|F|pdf)', 
-	     'Python3'=>'(py|pdf)', 'Java'=>'(java|pdf)');
-  }
-
-  my @fh = upload('source');
+  ### Get uploaded source files and pdfs:
   @sources = ();
   @pdfs = ();
+  my @fh = upload('source');
+
   for (my $i=0; $i<@fh; $i++) {
     ($uploads[$i] !~ /\.$exts{$language}$/ || $uploads[$i] !~ /^[a-zA-Z0-9_\.\-]+$/) && next;
 
@@ -1178,37 +1178,42 @@ sub submit_assignment {
     $rep .= "\n</pre></div>"; 
   }
 
-  my $grade;
-  my $full_grade;
+  my $grade = 0;
   my @test_cases = ();
   
   ### If this is a PDF statement, there is nothing else to do:
   if ($language eq 'PDF') {
-    if ($utype eq 'S' && exists($cfg{deadline}) && !$dryrun && $deaddays > 0) {
-      $rep .= "<b>Recebido com atraso de $deaddays " . ($deaddays>1 ? "dias" : "dia") . ".</b><br>";
+    if ($utype eq 'S' && exists($cfg{deadline}) && $deaddays > 0) {
+      $rep .= "<br><b>Recebido com atraso de $deaddays " . ($deaddays>1 ? "dias" : "dia") . ".</b>";
       $grade = "recebido +$deaddays";
     }
     else {
-      $rep .= "<b>Recebido.</b><br>";
+      $rep .= "<br><b>Recebido.</b>";
       $grade = 'recebido';
     }
   }
   else {
-    # Load test-case names early to produce correct messages for compiling errors:
+    # Load test-case names early to produce correct error messages:
     opendir(my $DIR,"$assign") || abort($uid,$assign,"submit: opendir $assign: $!");
     @test_cases = sort(grep {/\.in$/ && -f "$assign/$_"} readdir($DIR));
     close($DIR);
 
     my $ncases = @test_cases;
-
     for (my $i=0; $i<$ncases; $i++) {
       $test_cases[$i] =~ s/\.in$//;
     }
 
-    $grade = 0;
-
     # Compile:
     $rep .= "\n<p><b>Compilação:</b>&nbsp;";
+
+    # Copy files from directory include if one exists:
+    if (-d "$assign/include") {
+      my @files = glob("$assign/include/*");
+      for my $file (@files) {
+	copy($file, $userd) or abort($uid,$assign,"submit: copy: $!");
+      }
+    }
+    
     my $compcmd;
     
     if ($language eq 'C') {
@@ -1447,7 +1452,8 @@ sub submit_assignment {
 	
 	$rep .= "\n<br>Número de casos-de-teste: $ncases." .
 	        "\n<br>Casos-de-teste bem sucedidos: $passed.";
-	
+
+	my $full_grade ;
 	if ($cfg{'grading'} eq 'total') {
 	  $full_grade = ($passed == $ncases ? 100 : 0);
 	}
@@ -1468,7 +1474,7 @@ sub submit_assignment {
 	
 	if ($discount > 0 && $full_grade > 0) {
 	  $rep .= sprintf(", desconto de %.0f%% sobre %.0f%% por atraso desde %s.", 
-			  100*$discount, $full_grade, $cfg{deadline});
+			  100*$discount, $full_grade, br_date($cfg{deadline}));
 	}
 	$rep .= "<br>\n";
 
@@ -1616,7 +1622,8 @@ sub invoke_moss {
   (!$recursive) && print_html_start();
 
   (!%sys_cfg) && (%sys_cfg = load_keys_values('sqtpm.cfg'));
-  
+  my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
+
   @gsources = ();  # @gsources is modified by wanted_moss.
   find(\&wanted_moss,"./$assign");
 
@@ -1649,9 +1656,15 @@ sub invoke_moss {
     my $LOCK;
     open($LOCK,'>',"$assign/moss.lock") || abort($uid,$assign,"moss: open $assign/moss.lock: $!");
     flock($LOCK,LOCK_EX|LOCK_NB) || abort($uid,$assign,"Comparando $assign, aguarde.");
-    
-    my $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -m $sys_cfg{'moss-m'} " .
+
+    my @aux = split(/ +/,$cfg{languages});
+    my $lang = lc($aux[0]);
+    $lang =~ s/c\+\+/cc/;
+    $lang =~ s/python3/python/;
+        
+    my $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -l $lang -m $sys_cfg{'moss-m'} " .
       "-d @gsources 1>$assign/moss.run 2>$assign/moss.err";
+
     system($cmd);
     my $st = $? >> 8;
 
@@ -1687,7 +1700,7 @@ sub invoke_moss {
 sub wanted_moss {
   -f && 
   !($File::Find::name =~ /\/backup\//) && 
-  (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/ || /\.py$/) && 
+  (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/ || /\.py$/ || /\.java$/) && 
   (push(@gsources,"$File::Find::name"));
 }
 

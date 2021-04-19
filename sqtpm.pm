@@ -15,6 +15,7 @@ require Exporter;
              format_epoch
              elapsed_days
              dow
+             br_date
 
              load_keys_values
              load_keys
@@ -201,6 +202,18 @@ sub dow {
   return $days[$wday];
 }
 
+
+####################################################################################################
+# string br_date($date)
+#
+# Convert from aaaa/mm/dd hh:mm:ss to dd/mm/aaaa hh:mm:ss
+
+sub br_date {
+  my $date = shift;
+
+  return substr($date,8,2)."/".substr($date,5,2)."/".substr($date,0,4).substr($date,10);
+}
+  
 
 
 ####################################################################################################
@@ -432,17 +445,26 @@ sub write_lc_file {
 
 
 ####################################################################################################
-# abort($uid, $assignment, $message)
+# abort($uid, $assignment, $message, $silently)
 #
-# Print message, remove $assignment/_$uid_tmp_ and its contents, write to log and exit.
+# Print message and close html blocks, remove $assignment/_$uid_tmp_
+# and its contents, write to log and exit.
+#
+# If quiet is defined and true, write the message to the log only.
 
 sub abort {
 
   my $uid = shift;
   my $assign = shift;
   my $mess = shift;
+  my $quiet = shift;
 
-  print '<p>', $mess, '<hr></form></div></div></body></html>';
+  if (!defined($quiet) or !$quiet) {
+    print '<p>', $mess;
+  }
+  
+  
+  print '<hr></form></div></div></body></html>';
 
   if ($assign && -d "$assign/_${uid}_tmp_") {
     unlink glob "$assign/_${uid}_tmp_/*";

@@ -66,3 +66,7 @@ v8
 
 v9
 -Java added.
+-include directory added.
+-display of dates changed.
+-long log lines shortened.
+-grades tables layout was standardized.
