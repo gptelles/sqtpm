@@ -383,7 +383,7 @@ sub show_statement {
     '<table><tr><td style="vertical-align:top">' .
     "Linguagens: $cfg{languages}";
 
-  # Pascal, Fortran and Python are limited to a sigle source file:
+  # Pascal, Fortran and Python are limited to a single source file:
   if ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') {
     ($cfg{files} = '1,1');
   }
@@ -1019,21 +1019,9 @@ sub submit_assignment {
   
   my @sources = grep(/\.$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
 
-  # Pascal, Fortran and Python are limited to a sigle source file:
+  # Pascal, Fortran and Python are limited to a single source file:
   if ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') {
     ($cfg{files} = '1,1');
-  }
-
-  # Accept up to 10 files as default:
-  (!exists($cfg{files})) && ($cfg{files} = '1,10');
-
-  $cfg{files} =~ /(\d+),(\d+)/;
-  if (@sources < $1 || @sources > $2) {
-    my $mess = 'Envie ' . ($1 == $2 ? ($1==1) ? "1 arquivo." : "$1 arquivos." : "de $1 a $2 arquivos.");
-    print $mess .
-	  '<p>Veja detalhes sobre os nomes de arquivos válidos nesta ' .
-	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.";
-    abort($uid,$assign,"Incorrect number of files",1);
   }
 
   # A Main.java is required for Java:
@@ -1047,7 +1035,16 @@ sub submit_assignment {
       }
     }
   }
-  
+
+  # Accept up to 10 files as default:
+  (!exists($cfg{files})) && ($cfg{files} = '1,10');
+
+  my $mess = '';
+  $cfg{files} =~ /(\d+),(\d+)/;
+  if (@sources < $1 || @sources > $2) {
+    $mess .= 'Envie ' . ($1==$2 ? ($1==1 ? "1 arquivo." : "$1 arquivos.") : "de $1 a $2 arquivos.") . '<p>';
+  }
+
   if (exists($cfg{filenames})) {
     my %names = ();
     my @aux = split(/ +/,$cfg{filenames});
@@ -1056,12 +1053,18 @@ sub submit_assignment {
       $aux[$i] =~ s/\{assign\}/$assign/;
       $names{$aux[$i]} = 1;
     }
-    if (keys(%names) > 0) {
-      for (my $i=0; $i<@uploads; $i++) {
-	delete($names{$uploads[$i]});
-      }
-      (keys(%names) > 0) && abort($uid,$assign,"Envie arquivos com nomes: @aux.") ;
+    for (my $i=0; $i<@uploads; $i++) {
+      delete($names{$uploads[$i]});
     }
+    if (keys(%names) > 0) {
+      $mess .= "Envie arquivos com nomes: @aux.<p>";
+    }
+  }
+
+  if ($mess) {
+    print $mess . 'Veja detalhes sobre os nomes de arquivos válidos nesta ' .
+	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.";
+    abort($uid,$assign,"Número ou nomes de arquivos incorretos",1);
   }
   
   # Read tries from the existing report file or set it to 0:
@@ -1207,9 +1210,10 @@ sub submit_assignment {
     $rep .= "\n<p><b>Compilação:</b>&nbsp;";
 
     # Copy files from directory include if one exists:
+    my @included = ();
     if (-d "$assign/include") {
-      my @files = glob("$assign/include/*");
-      for my $file (@files) {
+      @included = glob("$assign/include/*");
+      for my $file (@included) {
 	copy($file, $userd) or abort($uid,$assign,"submit: copy: $!");
       }
     }
@@ -1514,9 +1518,14 @@ sub submit_assignment {
     (-e $elff) && unlink($elff);  
     (-e $outf) && unlink($outf);
     (-e $errf) && unlink($errf);
-    
-    ($language eq 'Java') && unlink(glob "$userd/*.class");
 
+    if (@included) {
+      foreach my $file (@included) {
+	unlink("$userd/" . basename($file));
+      }
+    }
+
+    ($language eq 'Java') && unlink(glob "$userd/*.class");
     ($language ne 'Python3') && unlink(glob "$userd/*.o");
       
     foreach my $case (@test_cases) {
@@ -1694,7 +1703,7 @@ sub invoke_moss {
 
 
 ####################################################################################################
-# A wanted function to find sources for moss.  It uses @sources from
+# A wanted function to find sources for moss.  It add files to @gsources from
 # an outer scope.
 
 sub wanted_moss {
