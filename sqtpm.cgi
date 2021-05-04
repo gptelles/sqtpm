@@ -697,7 +697,7 @@ sub show_grades_table {
       }
       my $c = 0;
       
-      foreach my $user (sort(@users)) {
+      foreach my $user (@users) {
 	$tab .= "<tr align=center>" . 
 	  "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
 	$c++;
@@ -949,7 +949,7 @@ sub show_all_grades_table {
 
   print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
 
-  foreach my $user (sort(@users)) {
+  foreach my $user (@users) {
     print "<tr align=center><td class=\"grid\"><b>$user</b>";
     foreach my $amnt (@amnts) {
       print "<td class=\"grid\">$grades{$amnt}{$user}</td>";
