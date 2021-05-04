@@ -50,14 +50,14 @@ sub setpasswd {
   # Check user and passwords:
   my ($utype,$upassf) = authenticate($uid,$oldplain);
 
-  ($utype eq '') && abort_pwd($uid,'Dados incorretos.');
-  ($newplain eq '') && abort_pwd($uid,'A nova senha não pode ser vazia.');
-  ($newplain ne $replain) && abort_pwd($uid,'A nova senha e a confirmação devem ser iguais.');
+  ($utype eq '') and abort_pwd($uid,'Dados incorretos.');
+  ($newplain eq '') and abort_pwd($uid,'A nova senha não pode ser vazia.');
+  ($newplain ne $replain) and abort_pwd($uid,'A nova senha e a confirmação devem ser iguais.');
 
   # Update the password file:
   $newenc = sha512_base64($newplain);
 
-  open(my $PASS,'+<',$upassf) || abort_pwd($uid,"setpasswd : open : $upassf : $!");
+  open(my $PASS,'+<',$upassf) or abort_pwd($uid,"setpasswd : open : $upassf : $!");
   flock($PASS,LOCK_EX);
     
   my $lines = '';
@@ -71,7 +71,7 @@ sub setpasswd {
     };
 
     s/\s+//g;
-    $_ && ($lines .= "$_\n");
+    $_ and ($lines .= "$_\n");
   }
 
   if ($got) {
