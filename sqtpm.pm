@@ -55,7 +55,7 @@ sub authenticate {
   my $uid = shift;
   my $typedpwd = shift;
 
-  ($uid =~ /^\s*$/) && return ('','');
+  ($uid =~ /^\s*$/) and return ('','');
 
   # Search for the password file holding the user id, and get its prefix and password:
   opendir(my $DIR,'.');
@@ -69,7 +69,7 @@ sub authenticate {
   while ($i <= $#dir && !$got) {
 
     my $PASS;
-    open($PASS,'<',$dir[$i]) || abort($uid,'',"Erro ao abrir o arquivo $dir[$i].");
+    open($PASS,'<',$dir[$i]) or abort($uid,'',"Erro ao abrir o arquivo $dir[$i].");
     
     while (<$PASS>) {
       $_ = (split('#',$_,2))[0];
@@ -90,16 +90,16 @@ sub authenticate {
   }
 
   # If the user does not exist, reject:
-  !$got && (return ('',''));
+  !$got and (return ('',''));
 
   # Set user type:
   my $utype = ($prefix eq '*') ? 'P' : 'S';
 
   # If typed and stored are both blank, accept. 
-  $encpwd eq '' && $typedpwd eq '' && (return ($utype,$file));
+  ($encpwd eq '' && $typedpwd eq '') and (return ($utype,$file));
 
   # If typed and stored differ, reject:
-  $encpwd ne sha512_base64($typedpwd) && (return ('',''));
+  ($encpwd ne sha512_base64($typedpwd)) and (return ('',''));
 
   return ($utype,$file);
 }
@@ -117,9 +117,9 @@ sub add_to_log {
   my $assign = shift;
   my $mess = shift;
 
-  !$uid && ($uid = '');
-  !$assign && ($assign = '');
-  !$mess && ($mess = '');
+  !$uid and ($uid = '');
+  !$assign and ($assign = '');
+  !$mess and ($mess = '');
 
   my $LOG;
   if (!open($LOG,'>>','sqtpm.log')) {
@@ -236,17 +236,17 @@ sub load_keys_values {
   my $file = shift;
   my $sep = shift;
 
-  (!$sep) && ($sep = '=');
+  (!$sep) and ($sep = '=');
 
-  open(my $FILE,'<',$file) || abort('','',"load_keys_values: open $file: $!");
+  open(my $FILE,'<',$file) or abort('','',"load_keys_values: open $file: $!");
 
   my %hash = ();
 
   while (<$FILE>) {
     chomp;
-    (/^\s*$/) && next;
+    (/^\s*$/) and next;
     $_ = (split(/#/,$_,2))[0];
-    (/^\s*$/) && next;
+    (/^\s*$/) and next;
     my ($key,$value) = split(/${sep}/,$_,2);
     $key =~ s/^\s+//;
     $key =~ s/\s+$//;
@@ -264,12 +264,12 @@ sub load_keys_values {
 
 
 ####################################################################################################
-# array load_keys($file, $separator)
+# array load_keys($file, $delimiter)
 #
 # Read a file with lines in format ^\s*key\s*=\s*value\s* and return an
 # array with keys in the same order as they appear in the file.
 #
-# If a separator is given, then it is used instead of '='.
+# If a delimiter is given, it is used instead of '='.
 #
 # If '#' occurs in a line, line contents from '#' to the end of the
 # line is discarded.  Keys are trimmed for blanks on both ends.  Lines
@@ -282,20 +282,22 @@ sub load_keys {
   my $file = shift;
   my $sep = shift;
 
-  (!$sep) && ($sep = '=');
+  (!$sep) and ($sep = '=');
   
-  open(my $FILE,'<',$file) || abort('','',"load_keys: open $file: $!");
+  open(my $FILE,'<',$file) or abort('','',"load_keys: open $file: $!");
 
   my @A = ();
-  
+
   while (<$FILE>) {
     chomp;
+    /^\s*$/ and next; 
     $_ = (split(/#/,$_,2))[0];
-    $_ = (split(/${sep}/,$_,2))[0];
+    /^\s*$/ and next; 
+    $_ = (split(/$sep/,$_,2))[0];
+    /^\s*$/ and next; 
     s/^\s+//;
     s/\s+$//;
-    /^\s*$/ && next; 
-    $_ && (push(@A,$_));
+    $_ and (push(@A,$_));
   }
   
   close($FILE);
@@ -324,23 +326,23 @@ sub load_file {
   my $is_pre = shift;
   my $limit = shift;
 
-  (!defined $is_pre) && ($is_pre = 0);
-  (!defined $limit || $limit == 0) && ($limit = 1e9);
+  (!defined $is_pre) and ($is_pre = 0);
+  (!defined $limit || $limit == 0) and ($limit = 1e9);
 
-  open(my $FILE,'<',$file) || abort($uid,$assign,"load_file: open $file: $!");
+  open(my $FILE,'<',$file) or abort($uid,$assign,"load_file: open $file: $!");
 
   my $buf = '';
   my $c = getc($FILE);
   my $n = 0;
   while (defined $c && $n < $limit) {
-    ($is_pre && $c eq '<') && ($c = '&lt;');
-    ($is_pre && $c eq '>') && ($c = '&gt;');
+    ($is_pre && $c eq '<') and ($c = '&lt;');
+    ($is_pre && $c eq '>') and ($c = '&gt;');
     $buf .= $c;
     $c = getc($FILE);
     $n++;
   }
 
-  ($n == $limit) && ($buf .= "\n...\n");
+  ($n == $limit) and ($buf .= "\n...\n");
   close($FILE);
 
   $! = 0;
@@ -366,7 +368,7 @@ sub load_rep_data {
   %get = ();
   $get{tries} = 0;
 
-  open($REPORT,'<',"$file") || (return %get);
+  open($REPORT,'<',"$file") or (return %get);
 
   $_ = <$REPORT>;
   /<!--lang:([\w\+]*)-->/;
@@ -417,8 +419,8 @@ sub write_lc_file {
     return 0;
   }
   
-  open(my $FIN,'<',$filin) || abort($uid,$assign,"lc_file: open $filin: $!");
-  open(my $FOUT,'>',$filout) || abort($uid,$assign,"lc_file: open $filout: $!");
+  open(my $FIN,'<',$filin) or abort($uid,$assign,"lc_file: open $filin: $!");
+  open(my $FOUT,'>',$filout) or abort($uid,$assign,"lc_file: open $filout: $!");
   
   my $n = 0;
   while (<$FIN>) {
@@ -555,7 +557,7 @@ sub histogram {
   ### Eval x and y scales:
   my $x_scale = ($png_width-(2*$x_margin)-$y_text_area-(2*$free_axis_end)) / $pairs_total;
 
-  ($x_scale > 30) && ($x_scale = 30);
+  ($x_scale > 30) and ($x_scale = 30);
 
   my $up_text = 0;
   if ($x_scale < $max_x*1.2*$tfw) {
@@ -657,7 +659,7 @@ sub histogram {
   $i = 1;
   $value = 0;
   foreach $value (sort {$a cmp $b} keys(%$data2)) {
-    ($$data2{$value} > 0) && 
+    ($$data2{$value} > 0) and 
       $im->filledRectangle($x_zero + $bar_separation + (($i-1)*$x_scale)+1,
 			   $y_zero - 1,
 			   $x_zero + ($i*$x_scale)-1,
@@ -667,7 +669,7 @@ sub histogram {
   }
 
   ### Drop to file:
-  #open($PNG, ">$png_file") || die("Unable to write $png_file");
+  #open($PNG, ">$png_file") or die("Unable to write $png_file");
   #print $PNG $im->png;
   #close($PNG);
 
