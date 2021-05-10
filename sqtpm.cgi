@@ -392,7 +392,6 @@ sub show_statement {
   (exists($cfg{startup})) and print "Data de abertura: " . br_date($cfg{startup});
 
   my $days = 0;
-  my $ddays = ceil(100/$cfg{penalty})+1;
   my $open = ($utype eq 'S' ? 0 : 1);
 
   if (exists($cfg{deadline})) {
@@ -404,7 +403,7 @@ sub show_statement {
       $open = 1;
     }
     else {
-      if ($days-$ddays <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
+      if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
 	print ' (dry-run)'; 
 	($utype eq 'S') and print '<font color="MediumBlue">'.
 	  '<br>Aberto para envio que não substitui o último envio no prazo</font>';
