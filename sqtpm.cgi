@@ -9,6 +9,7 @@ use CGI::Session qw/-ip-match/;
 use CGI::Session::Driver::file; 
 $CGI::LIST_CONTEXT_WARN = 0; 
 
+use POSIX qw(ceil);
 use LWP::Simple ();
 use Cwd qw(cwd getcwd);
 use Fcntl ':flock';
@@ -22,17 +23,19 @@ use Time::Local;
 use lib dirname(__FILE__);
 use sqtpm;
 
+
 $CGI::POST_MAX = 50000; # bytes
+$sort_reports = 1;
 
 umask(0007);
 
-
 # Globals:
 my %sys_cfg = ();
-
 my $cgi = CGI->new;
 my $session = 0;
 
+
+# Try to retrieve session id:
 my $sprefix = getcwd();
 $sprefix =~ s/^\///;
 $sprefix =~ s/\//-/g;
@@ -41,7 +44,6 @@ $sprefix = "sqtpm-$sprefix";
 my $sessiond = '/tmp';
 $CGI::Session::Driver::file::FileName = $sprefix . '-%s';  
 
-# Try to retrieve session id:
 my $sid = $cgi->cookie('CGISESSID') || $cgi->param('CGISESSID') || undef;
 
 # If the session id exists but the file don't then it must get a new session:
@@ -251,9 +253,9 @@ sub home {
 	my $days = elapsed_days($cfg{deadline});
 	if ($days*$cfg{penalty} < 100) {
 	  $tab .= '<font color="MediumBlue">aberto</font>';
-	}      
-	elsif ($days <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	  $tab .= '<font color="MediumBlue">encerrado</font>';
+	}
+	elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
+	  $tab .= 'dry-run';
 	}
 	else {
 	  $tab .= 'encerrado';
@@ -267,14 +269,14 @@ sub home {
       # Startup:
       if ($utype eq 'P') {
 	$tab .= "<td class=\"grid\">";
-	$tab .= exists($cfg{startup}) ? dow($cfg{startup})." &nbsp;".br_date($cfg{startup}) : 'não há';
-	$tab .= '</td>';
+	$tab .= (exists($cfg{startup}) ?
+		 dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup}) : 'não há') . '</td>';
       }
       
       # Deadline:
       $tab .= "<td class=\"grid\">";
-      $tab .= exists($cfg{deadline}) ? dow($cfg{deadline})." &nbsp;".br_date($cfg{deadline}) : 'não há ';
-      $tab .= '</td>';
+      $tab .= (exists($cfg{deadline}) ?
+	       dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
 
       if ($utype eq 'S') {
 	# Last submisson grade:
@@ -380,17 +382,56 @@ sub show_statement {
     block_user($uid,$upassf,"show_st: o prazo para enviar $assign não começou");
 
   print "<b>Trabalho:</b> $assign" .
-    '<table><tr><td style="vertical-align:top">' .
-    "Linguagens: $cfg{languages}";
+    '<table><tr><td style="vertical-align:top">';
 
   # Pascal, Fortran and Python are limited to a single source file:
   if ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Python3') {
     ($cfg{files} = '1,1');
   }
-
-  # Accept 10 files as default:
-  (!exists($cfg{files})) and ($cfg{files} = '1,10');
    
+  (exists($cfg{startup})) and print "Data de abertura: " . br_date($cfg{startup});
+
+  my $days = 0;
+  my $ddays = ceil(100/$cfg{penalty})+1;
+  my $open = ($utype eq 'S' ? 0 : 1);
+
+  if (exists($cfg{deadline})) {
+    $days = elapsed_days($cfg{deadline}); 
+    print "<br>Data limite para envio: ", br_date($cfg{deadline});
+    
+    if ($days*$cfg{penalty} < 100) {
+      print ($days < 1 ? ' (aberto)' : " (aberto +$days)");
+      $open = 1;
+    }
+    else {
+      if ($days-$ddays <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
+	print ' (dry-run)'; 
+	($utype eq 'S') and print '<font color="MediumBlue">'.
+	  '<br>Aberto para envio que não substitui o último envio no prazo</font>';
+	$open = 1;
+      }
+      else {
+	print ' (encerrado)';
+      }
+    }
+    
+    ($cfg{penalty} < 100) and print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
+  }
+  
+  if ($open) {
+    print "<br>Número máximo de envios: $cfg{tries}";
+
+    if (-f "$assign/casos-de-teste.tgz") {
+      print '<br>Casos-de-teste abertos: <a href="javascript:;" ' .
+	"onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a>";
+    }
+
+    if (-f "$assign/include.tgz") {
+      print '<br>Arquivos-fonte: <a href="javascript:;" ' .
+	"onclick=\"wrap('dwn','$assign','','include.tgz')\";>include.tgz</a>";
+    }
+  }
+
   my @aux = split(/,/,$cfg{files});
   print "<br>Arquivos a enviar: " . 
     ($aux[0] == $aux[1] ? "$aux[0]" : "entre $aux[0] e $aux[1]");
@@ -404,46 +445,6 @@ sub show_statement {
     print "<br>Enviar arquivos com nomes: @aux";
   }
 
-  (exists($cfg{startup})) and print "<br>Data de abertura: " . br_date($cfg{startup});
-
-  # dryrun of PDF will not be possible:
-  ($cfg{languages} =~ /PDF/) and ($cfg{'keep-open'} = 0);
-
-  my $days = 0;
-
-  if (exists($cfg{deadline})) {
-    $days = elapsed_days($cfg{deadline}); 
-    print "<br>Data limite para envio: ", br_date($cfg{deadline});
-    if ($days*$cfg{penalty} >= 100) {
-      print ' (encerrado)';
-      if ($days <= $cfg{'keep-open'}) {
-	print '<font color="MediumBlue">'.
-	  '<br>Aberto para envio que não substitui o último envio no prazo</font>';
-      }
-    }
-	
-    ($cfg{penalty} < 100) and print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
-  }
-  
-  my $open = 0;
-  if ($utype eq 'S' && exists($cfg{deadline})) {
-    if ($days*$cfg{penalty} < 100 || ($days*$cfg{penalty} >= 100 && $days <= $cfg{'keep-open'})) {
-      $open = 1;
-    }
-  }
-  else {
-    $open = 1;
-  }
-
-  if ($open) {
-    print "<br>Número máximo de envios: $cfg{tries}";
-
-    if (-f "$assign/casos-de-teste.tgz") {
-      print '<br>Casos-de-teste abertos: <a href="javascript:;" ' .
-	"onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a>";
-    }
-  }
-  
   if ($utype eq 'S') {
     my %rep = load_rep_data("$assign/$uid/$uid.rep");
     if (exists($rep{grade})) {
@@ -457,7 +458,8 @@ sub show_statement {
   if ($utype eq 'P') {
     print '<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>' .
       '<td style="vertical-align:top">' .
-      "backup: $cfg{backup}<br>grading: $cfg{grading}<br>keep-open: $cfg{'keep-open'}</td>" ,      
+      "Linguagens: $cfg{languages}<br>backup: $cfg{backup}" .
+      "<br>grading: $cfg{grading}<br>keep-open: $cfg{'keep-open'}</td>" .
       '<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>' . 
       '<td style="vertical-align:top">' .
       "cputime: $cfg{cputime} s<br>virtmem: $cfg{virtmem} kb<br>stkmem: $cfg{stkmem} kb";
@@ -563,7 +565,10 @@ sub download_file {
   check_assign_access($uid,$upassf,$assign);
 
   # Check file existance:
-  if ($file eq "casos-de-teste.tgz") {
+  if ($file eq 'casos-de-teste.tgz') {
+    $file = "$assign/$file";
+  }
+  elsif ($file eq 'include.tgz') {
     $file = "$assign/$file";
   }
   else {
@@ -652,7 +657,7 @@ sub show_grades_table {
 
       $tab = "<p><b>Acertos para os $n usuários de $passf em $assign:</b>";
       
-      foreach my $user (@users) {
+      for my $user (@users) {
 	my %rep = load_rep_data("$assign/$user/$user.rep");
 
 	if (exists($rep{grade})) {
@@ -677,8 +682,8 @@ sub show_grades_table {
 
       # Produce a report with a table with tuples {user,grade} and a
       # histogram.  They are both in an outer table.
-      $tab .= sprintf("<br>&emsp;Enviados: %i (%.0f%%)",$show,$n>0?100*$show/$n:0.0) .
-	sprintf("<br>&emsp;100%%: %i (%.0f%%)",$show100,$show>0?100*$show100/$show:0.0);
+      $tab .= sprintf("<br>&emsp;Enviados: %i (%.0f%%)",$show,($n>0?100*$show/$n:0.0)) .
+	sprintf("<br>&emsp;100%%: %i (%.0f%%)",$show100,($show>0?100*$show100/$show:0.0));
 
       (@langs == 1) and ($tab .= "<br>&emsp;Todos em $langs[0]");
 
@@ -696,8 +701,10 @@ sub show_grades_table {
 	$d = @users+1;
       }
       my $c = 0;
+
+      ($sort_reports) and (@users = sort(@users));
       
-      foreach my $user (@users) {
+      for my $user (@users) {
 	$tab .= "<tr align=center>" . 
 	  "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
 	$c++;
@@ -827,7 +834,7 @@ sub show_grades_table {
 	my $show100 = 0;
 	@users = @{$langs{$k}};
 	
-	foreach my $user (sort(@users)) {
+	for my $user (sort(@users)) {
 	  $tab .= '<tr align=center>' . 
 	    "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
 	  ($grades{$user} ne '-') and ($show++);
@@ -836,10 +843,10 @@ sub show_grades_table {
 	
 	my $n = @users;
 	$tab .= '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>' .
-	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",$show,$n,$n>0?100*$show/$n:0) .
+	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",$show,$n,($n>0?100*$show/$n:0)) .
 	  '<tr align=center><td class="grid"><b>100%</b><br><b>%</b></td>' .
 	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",
-		  $show100,$show,$show>0?100*$show100/$show:0) .
+		  $show100,$show,($show>0?100*$show100/$show:0)) .
 	  '</table>' .
 	  '</td><td></td>';
       }
@@ -893,7 +900,7 @@ sub show_all_grades_table {
   for (my $i=@amnts-1; $i>=0; $i--) {
     $grades{$amnts[$i]} = { () };
 
-    foreach my $user (@users) {
+    for my $user (@users) {
       my %rep = load_rep_data("$amnts[$i]/$user/$user.rep");
 
       if ($rep{tries} > 0) {
@@ -911,9 +918,14 @@ sub show_all_grades_table {
   my %show = ();
   my %show100 = ();
   my $n = @users;
-  
-  foreach my $user (@users) {
-    foreach my $amnt (@amnts) {
+
+  for my $amnt (@amnts) {
+    $show{$amnt} = 0;
+    $show100{$amnt} = 0;
+  }
+    
+  for my $user (@users) {
+    for my $amnt (@amnts) {
       ($grades{$amnt}{$user} ne '-') and ($show{$amnt}++);
       ($grades{$amnt}{$user} =~ '>100</a>$') and ($show100{$amnt}++);
     }
@@ -927,31 +939,33 @@ sub show_all_grades_table {
 
   print '<tr align=center><td class="grid"><b>enviados</b></td>';
   #print '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>';
-  foreach my $amnt (@amnts) {
-    printf("<td class=\"grid\">%i (%.0f%%)</td>",$show{$amnt},$n>0 ? 100*$show{$amnt}/$n : 0.0);
+  for my $amnt (@amnts) {
+    printf("<td class=\"grid\">%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
   }
   print '</tr>';
     
   print '<tr align=center><td class="grid"><b>100%</b></td>';
-  foreach my $amnt (@amnts) {
+  for my $amnt (@amnts) {
     printf("<td class=\"grid\">%i (%.0f%%)</td>",
-	   $show100{$amnt},$show{$amnt}>0 ? 100*$show100{$amnt}/$show{$amnt} : 0.0);
+	   ($show100{$amnt},($show{$amnt}>0 ? 100*$show100{$amnt}/$show{$amnt} : 0.0)));
   }
   print '</tr>';
 
   print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
 
   print '<tr><th class="grid">usuário</th>';
-  foreach my $amnt (@amnts) {
+  for my $amnt (@amnts) {
     print "<th class=\"grid\">$amnt</th>";
   }
   print '</tr>';
 
   print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
 
-  foreach my $user (@users) {
+  ($sort_reports) and (@users = sort(@users));
+
+  for my $user (@users) {
     print "<tr align=center><td class=\"grid\"><b>$user</b>";
-    foreach my $amnt (@amnts) {
+    for my $amnt (@amnts) {
       print "<td class=\"grid\">$grades{$amnt}{$user}</td>";
     }
     print '</tr>';
@@ -991,15 +1005,12 @@ sub submit_assignment {
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
   my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
-  my $deaddays = exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0;
+  my $days = (exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0);
 
-  # dryrun of PDF will not be possible:
-  ($language eq 'PDF') and ($cfg{'keep-open'} = 0);
-  
   # Check whether the assignment is open:
   if ($utype eq 'S') {    
-    if (exists($cfg{deadline}) && $deaddays*$cfg{penalty} >= 100) {
-      if ($deaddays <= $cfg{'keep-open'}) { 
+    if (exists($cfg{deadline}) && $days*$cfg{penalty} >= 100) {
+      if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $language !~ /PDF/) { 
 	$dryrun = 1;
       }
       else {
@@ -1046,13 +1057,11 @@ sub submit_assignment {
     }
   }
 
-  # Accept up to 10 files as default:
-  (exists($cfg{files})) or ($cfg{files} = '1,10');
-
   my $mess = '';
   $cfg{files} =~ /(\d+),(\d+)/;
   if (@sources < $1 || @sources > $2) {
-    $mess .= 'Envie ' . ($1==$2 ? ($1==1 ? "1 arquivo." : "$1 arquivos.") : "de $1 a $2 arquivos.") . '<p>';
+    $mess .= 'Envie ' .
+      ($1==$2 ? ($1==1 ? "1 arquivo." : "$1 arquivos.") : "de $1 a $2 arquivos.") . '<p>';
   }
 
   if (exists($cfg{filenames})) {
@@ -1103,12 +1112,12 @@ sub submit_assignment {
 
   if (exists($cfg{deadline})) {
     $rep .= "\n<br>Data limite para envio: " . br_date($cfg{deadline});
-    ($deaddays*$cfg{penalty} >= 100) and ($rep .= ' (encerrado)');
+    ($days*$cfg{penalty} >= 100) and ($rep .= ' (encerrado)');
     ($cfg{penalty} < 100) and ($rep .= "\n<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
 
   ($utype eq 'S' && $dryrun) and 
-    ($rep .= "\n<br><b>O prazo terminou. Este envio não substituirá o último no prazo.</b>");
+    ($rep .= "\n<br><b>O prazo terminou. Este envio não substituirá o último envio no prazo.</b>");
   
   ($utype eq 'P') and ($rep .= "\n<br>$uid: envios sem restrições de linguagem e prazo.");
 
@@ -1196,9 +1205,9 @@ sub submit_assignment {
   
   ### If this is a PDF statement, there is nothing else to do:
   if ($language eq 'PDF') {
-    if ($utype eq 'S' && exists($cfg{deadline}) && $deaddays > 0) {
-      $rep .= "<br><b>Recebido com atraso de $deaddays " . ($deaddays>1 ? "dias" : "dia") . ".</b>";
-      $grade = "recebido +$deaddays";
+    if ($utype eq 'S' && exists($cfg{deadline}) && $days > 0) {
+      $rep .= "<br><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b>";
+      $grade = "recebido +$days";
     }
     else {
       $rep .= "<br><b>Recebido.</b>";
@@ -1315,9 +1324,9 @@ sub submit_assignment {
       if ($ncases == 0) {
 	$rep .= "<p><b>Nenhum caso-de-teste.</b><br>";
 
-	if ($utype eq 'S' && exists($cfg{deadline}) && !$dryrun && $deaddays > 0) {
-	  $rep .= "<b>Recebido com atraso de $deaddays " . ($deaddays>1 ? "dias" : "dia") . ".</b><br>";
-	  $grade = "recebido +$deaddays";
+	if ($utype eq 'S' && exists($cfg{deadline}) && !$dryrun && $days > 0) {
+	  $rep .= "<b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b><br>";
+	  $grade = "recebido +$days";
 	}
 	else {
 	  $rep .= "<b>Recebido.</b><br>";
@@ -1339,7 +1348,8 @@ sub submit_assignment {
 	$rep .= "\n<p><b>Execução dos casos-de-teste:</b>\n<p>";
 
 	my $cmd = "./sqtpm-etc.sh $uid $assign $language $cfg{cputime} " .
-	          "$cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
+	  "$cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
+	
 	system($cmd);
 
 	my $status = $? >> 8;
@@ -1353,16 +1363,16 @@ sub submit_assignment {
 	my $passed = 0;
 	my $casei = 1;
 
-	foreach my $case (@test_cases) {
+	for my $case (@test_cases) {
 	  my $case_in = "$assign/$case.in";
 	  my $case_out = "$assign/$case.out";
 	  my $exec_st = "$userd/$case.run.st";
 	  my $exec_out = "$userd/$case.run.out";
 	  my $exec_err = "$userd/$case.run.err";
 
-	  (!-r $case_in) and abort($uid,$assign,"submit: sem permissão para $case_in.");
-	  (-s $exec_st && !-r $exec_st) and abort($uid,$assign,"submit: sem permissão para $exec_st.");
-	  (!-r $exec_out) and abort($uid,$assign,"submit: sem permissão para $exec_out.");
+	  (!-r $case_in) and abort($uid,$assign,"submit: sem permissão $case_in.");
+	  (-s $exec_st && !-r $exec_st) and abort($uid,$assign,"submit: sem permissão $exec_st.");
+	  (!-r $exec_out) and abort($uid,$assign,"submit: sem permissão $exec_out.");
 
 	  $failed{$case} = $casei;
 	  my $status;
@@ -1390,10 +1400,10 @@ sub submit_assignment {
 	  }
 	  elsif ($status > 0 || -s $exec_err) {
 	    (-s $exec_err && !-r $exec_err) and
-	      abort($uid,$assign,"submit: sem permissão para $exec_err.");
+	      abort($uid,$assign,"submit: sem permissão $exec_err.");
 	    $rep .= "erro de execução ($status).<br>";
-	    (-s $exec_err) and
-	      ($rep .= "\n<div class=\"io\">" . load_file($uid,$assign,$exec_err,0,1000) . "</div>\n");
+	    (-s $exec_err) and ($rep .= "\n<div class=\"io\">" .
+				load_file($uid,$assign,$exec_err,0,1000) . "</div>\n");
 	  }
 	  else {
 	    if (exists($cfg{verifier})) {
@@ -1417,7 +1427,7 @@ sub submit_assignment {
 	      }
 	    }
 	    else {
-	      (!-r $case_out) and abort($uid,$assign,"submit: sem permissão para $case_out.");
+	      (!-r $case_out) and abort($uid,$assign,"submit: sem permissão $case_out.");
 
 	      system("$cfg{diff} -q $case_out $exec_out >/dev/null 2>&1");
 	      $status = $? >> 8;
@@ -1467,7 +1477,7 @@ sub submit_assignment {
 	
 	my $discount = 0;
 	if ($utype eq 'S' && exists($cfg{deadline}) && $grade > 0 && !$dryrun) {
-	  $discount = $deaddays * $cfg{penalty} / 100;
+	  $discount = $days * $cfg{penalty} / 100;
 	  ($discount > 0) and ($grade = $full_grade * (1 - $discount));
 	  ($grade < 0) and ($grade = 0);
 	}
@@ -1500,8 +1510,9 @@ sub submit_assignment {
 
 	      $rep .= "\n<p>Saída produzida:<br><div class=\"io\">";
 	      if (-f "$userd/$show[$i].run.out") {
-		$rep .= load_file($uid,$assign,"$userd/$show[$i].run.out",0,
-			     int((-s "$assign/$show[$i].out")*1.2));
+		my $size = (-f "$assign/$show[$i].out") ?
+		  int((-s "$assign/$show[$i].out") * 1.2) : 4096;
+		$rep .= load_file($uid,$assign,"$userd/$show[$i].run.out",0,$size);
 	      }
 	      $rep .= "</div>";
 	      $rep .= "\n<hr>";
@@ -1518,7 +1529,7 @@ sub submit_assignment {
     (-e $errf) and unlink($errf);
 
     if (@included) {
-      foreach my $file (@included) {
+      for my $file (@included) {
 	unlink("$userd/" . basename($file));
       }
     }
@@ -1526,7 +1537,7 @@ sub submit_assignment {
     ($language eq 'Java') and unlink(glob "$userd/*.class");
     ($language ne 'Python3') and unlink(glob "$userd/*.o");
       
-    foreach my $case (@test_cases) {
+    for my $case (@test_cases) {
       (-e "$userd/$case.run.st")  and unlink("$userd/$case.run.st");
       (-e "$userd/$case.run.out") and unlink("$userd/$case.run.out");
       (-e "$userd/$case.run.out.lc") and unlink("$userd/$case.run.out.lc");
