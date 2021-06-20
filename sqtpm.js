@@ -28,12 +28,6 @@ function enterh(e,name) {
 }
 
 
-function about() { 
-    document.sqtpm.action.value = 'about';
-    document.sqtpm.submit(); 
-}
-
-
 function wrap(action,arg1,arg2,arg3) { 
     document.sqtpm.action.value = action;
     document.sqtpm.arg1.value = arg1;

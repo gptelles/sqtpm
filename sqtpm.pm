@@ -31,24 +31,25 @@ require Exporter;
              );
 
 
-use Encode;
+use Fcntl ':flock';
 use Time::Local;
 use open ":encoding(Latin1)";
-use Fcntl ':flock';
+use Encode;
 use Digest::SHA qw(sha512_base64);
 use POSIX qw(ceil floor);
 use GD;
 
 
 
-####################################################################################################
-# (string, string) authenticate($user, $typed_password)
+################################################################################
+# (user-type, user-file) authenticate($user, $typed_password)
 #
-# Return the user type and the name of the pass file that contains the user.  
-# The user type may be 'S' or 'P'.
+# Return the user type and the name of the pass file that contains the
+# user.  The user type may be 'prof', 'aluno', 'monitor'.
 #
-# Return ('','') in authentication failure.  If typed and stored passwords are both blank, 
-# it will return a valid authentication pair.  
+# Return ('','') in authentication failure.  If typed and stored
+# passwords are both blank, it will return a valid authentication
+# pair.
 
 sub authenticate {
 
@@ -93,20 +94,34 @@ sub authenticate {
   !$got and (return ('',''));
 
   # Set user type:
-  my $utype = ($prefix eq '*') ? 'P' : 'S';
+  my $utype;
 
-  # If typed and stored are both blank, accept. 
+  if (!$prefix) {
+    $utype = 'aluno';
+  }    
+  elsif ($prefix eq '*') {
+    $utype = 'prof';
+  }
+  elsif ($prefix eq '@') {
+    $utype = 'monitor';
+  }
+  else {
+    abort($uid,'',"Tipo de usuário inválido: $prefix.");
+  }
+
+  # If typed and stored are both blank, accept:
   ($encpwd eq '' && $typedpwd eq '') and (return ($utype,$file));
 
   # If typed and stored differ, reject:
   ($encpwd ne sha512_base64($typedpwd)) and (return ('',''));
 
+  # otherwise accept:
   return ($utype,$file);
 }
 
 
 
-####################################################################################################
+################################################################################
 # add_to_log($uid, $assignment, $message)
 #
 # Add an entry to sqtpm.log.
@@ -138,14 +153,14 @@ sub add_to_log {
 
 
 
-####################################################################################################
+################################################################################
 # string format_epoch($seconds)
 #
 # Format seconds from epoch as aaaa/mm/dd hh:mm:ss.
 
 sub format_epoch {
 
-  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( shift );
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(shift);
 
   return sprintf("%04.0f/%02.0f/%02.0f %02.0f:%02.0f:%02.0f",
                  $year+1900,$mon+1,$mday,$hour,$min,$sec);
@@ -153,7 +168,7 @@ sub format_epoch {
 
 
 
-####################################################################################################
+################################################################################
 # int elapsed_days($date)
 #
 # Return the integral number of days elapsed from date.
@@ -183,7 +198,7 @@ sub elapsed_days {
 
 
 
-####################################################################################################
+################################################################################
 # string dow($date)
 #
 # Return the day of week of date.
@@ -203,7 +218,8 @@ sub dow {
 }
 
 
-####################################################################################################
+
+################################################################################
 # string br_date($date)
 #
 # Convert from aaaa/mm/dd hh:mm:ss to dd/mm/aaaa hh:mm:ss
@@ -216,7 +232,7 @@ sub br_date {
   
 
 
-####################################################################################################
+################################################################################
 # hash load_keys_values($file, $separator)
 #
 # Read a file with lines in format ^\s*key\s*=\s*value\s* and return a
@@ -263,7 +279,7 @@ sub load_keys_values {
 
 
 
-####################################################################################################
+################################################################################
 # array load_keys($file, $delimiter)
 #
 # Read a file with lines in format ^\s*key\s*=\s*value\s* and return an
@@ -307,7 +323,7 @@ sub load_keys {
 
 
 
-####################################################################################################
+################################################################################
 # string load_file($uid, $assignment, $file, $is_pre, $limit)
 #
 # Load a limited number of characters from a file into a string.
@@ -351,7 +367,7 @@ sub load_file {
 
 
 
-####################################################################################################
+################################################################################
 # hash load_rep_data($file)
 # 
 # Get data on an assignment report, returning a hash with the
@@ -393,7 +409,7 @@ sub load_rep_data {
 
 
 
-####################################################################################################
+################################################################################
 # int write_lc_file($uid, $assign, $file, $limit)
 #
 # Create a version of a file without blanks and lowercase characters.
@@ -446,7 +462,7 @@ sub write_lc_file {
 
 
 
-####################################################################################################
+################################################################################
 # abort($uid, $assignment, $message, $silently)
 #
 # Print message and close html blocks, remove $assignment/_$uid_tmp_
@@ -465,7 +481,6 @@ sub abort {
     print '<p>', $mess;
   }
   
-  
   print '<hr></form></div></div></body></html>';
 
   if ($assign && -d "$assign/_${uid}_tmp_") {
@@ -480,7 +495,7 @@ sub abort {
 
 
 
-####################################################################################################
+################################################################################
 # abort_pwd($uid, $message)
 #
 # Print message, write to log and exit.
@@ -497,7 +512,7 @@ sub abort_pwd {
 
 
 
-####################################################################################################
+################################################################################
 # png-image histogram($png_width, $png_height, \%data1, \%data2)
 # 
 # A histogram for two data series.  Each data series is a hash with
