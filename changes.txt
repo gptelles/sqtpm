@@ -1,4 +1,4 @@
-v2:
+>v2:
 -New error messages
 -Fortran added
 -penalty directive for delayed practice added 
@@ -72,3 +72,5 @@ v9
 -grades tables layout was standardized.
 -option to send source codes mixed with pdfs removed. Directive
  sources renamed to files, directory pdfnames removed.
+-@ users re-enabled.
+-first submission in dry-run made possible.
