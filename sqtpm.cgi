@@ -233,7 +233,7 @@ sub home {
       
       # Groups:
       if ($utype ne 'aluno') {
-	$tab .= "<td class=\"grid\">";
+	$tab .= '<td class="grid">';
 	for (my $j=0; $j<@group; $j++) {
 	  my $group = $group[$j];
 	  $group =~ s/\.pass$//;
@@ -245,7 +245,7 @@ sub home {
       }
 
       # State:
-      $tab .= "<td class=\"grid\">";
+      $tab .= '<td class="grid">';
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	$tab .= '<font color="DarkOrange">fechado</font>';
       }
@@ -268,13 +268,13 @@ sub home {
 
       # Startup:
       if ($utype ne 'aluno') {
-	$tab .= "<td class=\"grid\">";
+	$tab .= '<td class="grid">';
 	$tab .= (exists($cfg{startup}) ?
 		 dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup}) : 'não há') . '</td>';
       }
       
       # Deadline:
-      $tab .= "<td class=\"grid\">";
+      $tab .= '<td class="grid">';
       $tab .= (exists($cfg{deadline}) ?
 	       dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
 
@@ -485,7 +485,7 @@ sub show_statement {
   if ($open) {
     @aux = split(/ +/,$cfg{languages});
 
-    print "<input type=\"hidden\" name=\"submassign\" value=\"$assign\">" .
+    print "<input type='hidden' name='submassign' value='$assign'>" .
       '<p><b>Enviar:</b></p>' .
       '<div class="f95">' .
       '<table cellspacing="0" border="0">' .
@@ -503,7 +503,7 @@ sub show_statement {
 
   if (exists($cfg{description})) {
     if ($cfg{description} =~ /^http/) {
-      print "<p><hr>Enunciado: <a href=\"$cfg{description}\">$cfg{description}</a><hr>";
+      print "<p><hr>Enunciado: <a href='$cfg{description}'>$cfg{description}</a><hr>";
     }
     elsif (-f "$assign/$cfg{description}") {
       print '<p><hr>';
@@ -682,10 +682,10 @@ sub show_grades_table {
       (@langs == 1) and ($tab .= "<br>&emsp;Todos em $langs[0]");
 
       $tab .= '<div class="f95">'.
-	'<table border=0><tr><td valign=\'top\'>' .
+	'<table border=0><tr><td valign="top">' .
 	'<table class="grid">' .
-	"<tr><th class=\"grid\">usuário</th><th class=\"grid\">$assign</th></tr>" .
-	"<tr align=center><td class=\"grid\" colspan=2></td></tr>";
+	'<tr><th class="grid">usuário</th><th class="grid">acertos</th></tr>' .
+	'<tr align=center><td class="grid" colspan=2></td></tr>';
 
       my $d;
       if (@users > 45) {
@@ -699,14 +699,14 @@ sub show_grades_table {
       @users = sort(@users);
       
       for my $user (@users) {
-	$tab .= "<tr align=center>" . 
-	  "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
+	$tab .= '<tr align=center>' . 
+	  "<td class='grid'><b>$user</b></td><td class='grid'>$grades{$user}</td></tr>";
 	$c++;
 	if ($c % $d == 0 && $c < $#users) {
 	  $tab .= '</table></td>' .
-	    '<td valign=\'top\'><table class="grid">' .
-	    "<tr><th class=\"grid\">usuário</th><th class=\"grid\">$assign</th></tr>" .
-	    "<tr align=center><td class=\"grid\" colspan=2></td></tr>";
+	    '<td valign="top"><table class="grid">' .
+	    '<tr><th class="grid">usuário</th><th class="grid">acertos</th></tr>' .
+	    '<tr align=center><td class="grid" colspan=2></td></tr>';
 	}
       }
 
@@ -819,10 +819,9 @@ sub show_grades_table {
 	'<p><table border=0><tr>';
 
       for my $k (@langs) {
-	$tab .= "<td valign='top'>" .
-	  '<table class="grid">' . 
-	  "<tr><th class=\"grid\">usuário</th><th class=\"grid\">$k</th></tr>" .
-	  "<tr align=center><td class=\"grid\" colspan=2></td></tr>" ;
+	$tab .= '<td valign="top"><table class="grid">' . 
+	  "<tr><th class='grid'>usuário</th><th class='grid'>$k</th></tr>" .
+	  '<tr align=center><td class="grid" colspan=2></td></tr>';
 
 	my $show = 0;
 	my $show100 = 0;
@@ -830,16 +829,16 @@ sub show_grades_table {
 	
 	for my $user (sort(@users)) {
 	  $tab .= '<tr align=center>' . 
-	    "<td class=\"grid\"><b>$user</b></td><td class=\"grid\">$grades{$user}</td></tr>";
+	    "<td class='grid'><b>$user</b></td><td class='grid'>$grades{$user}</td></tr>";
 	  ($grades{$user} ne '-') and ($show++);
 	  ($grades{$user} =~ '>100</a>$') and ($show100++);
 	}
 	
 	my $n = @users;
 	$tab .= '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>' .
-	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",$show,$n,($n>0?100*$show/$n:0)) .
+	  sprintf("<td class='grid'>%i / %i<br>%.0f%%</td></tr>",$show,$n,($n>0?100*$show/$n:0)) .
 	  '<tr align=center><td class="grid"><b>100%</b><br><b>%</b></td>' .
-	  sprintf("<td class=\"grid\">%i / %i<br>%.0f%%</td></tr>",
+	  sprintf("<td class='grid'>%i / %i<br>%.0f%%</td></tr>",
 		  $show100,$show,($show>0?100*$show100/$show:0)) .
 	  '</table>' .
 	  '</td><td></td>';
@@ -934,33 +933,33 @@ sub show_all_grades_table {
   print '<tr align=center><td class="grid"><b>enviados</b></td>';
   #print '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>';
   for my $amnt (@amnts) {
-    printf("<td class=\"grid\">%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
+    printf("<td class='grid'>%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
   }
   print '</tr>';
     
   print '<tr align=center><td class="grid"><b>100%</b></td>';
   for my $amnt (@amnts) {
-    printf("<td class=\"grid\">%i (%.0f%%)</td>",
+    printf("<td class='grid'>%i (%.0f%%)</td>",
 	   ($show100{$amnt},($show{$amnt}>0 ? 100*$show100{$amnt}/$show{$amnt} : 0.0)));
   }
   print '</tr>';
 
-  print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
+  print "<tr align=center><td class='grid' colspan=$n></td></tr>";
 
   print '<tr><th class="grid">usuário</th>';
   for my $amnt (@amnts) {
-    print "<th class=\"grid\">$amnt</th>";
+    print "<th class='grid'>$amnt</th>";
   }
   print '</tr>';
 
-  print "<tr align=center><td class=\"grid\" colspan=$n></td></tr>";
+  print "<tr align=center><td class='grid' colspan=$n></td></tr>";
 
   @users = sort(@users);
 
   for my $user (@users) {
-    print "<tr align=center><td class=\"grid\"><b>$user</b>";
+    print "<tr align=center><td class='grid'><b>$user</b>";
     for my $amnt (@amnts) {
-      print "<td class=\"grid\">$grades{$amnt}{$user}</td>";
+      print "<td class='grid'>$grades{$amnt}{$user}</td>";
     }
     print '</tr>';
   }
@@ -1108,27 +1107,27 @@ sub submit_assignment {
   ### Report header:
   my $now = format_epoch(time);
   my $rep = "<b>Usuário: $uid</b>";
-  $rep .= "\n<br><b>Trabalho: $assign</b>";
+  $rep .= "<br><b>Trabalho: $assign</b>";
 
   if (exists($cfg{deadline})) {
-    $rep .= "\n<br>Data limite para envio: " . br_date($cfg{deadline});
+    $rep .= "<br>Data limite para envio: " . br_date($cfg{deadline});
     ($days*$cfg{penalty} >= 100) and ($rep .= ' (encerrado)');
-    ($cfg{penalty} < 100) and ($rep .= "\n<br>Penalidade por dia de atraso: $cfg{penalty}%");
+    ($cfg{penalty} < 100) and ($rep .= "<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
 
   if ($utype eq 'aluno') {
     $dryrun and
-      ($rep .= "\n<br>O prazo terminou. Este envio não substitui o último envio no prazo.");
+      ($rep .= "<br>O prazo terminou. Este envio não substitui o último envio no prazo.");
   }
   else {
-    $rep .= "\n<br>$uid: envios sem restrições de linguagem e prazo.";
+    $rep .= "<br>$uid: envios sem restrições de linguagem e prazo.";
   }
   
   $tries++;
-  $rep .= "\n<br>Este envio: $tries&ordm;, " . br_date($now);
+  $rep .= "<br>Este envio: $tries&ordm;, " . br_date($now);
 
-  $rep .= "\n<br>Linguagem: $language";
-  $rep .= (@uploads == 1 ? "<br>Arquivo: " : "\n<br>Arquivos: ");
+  $rep .= "<br>Linguagem: $language";
+  $rep .= (@uploads == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
 
   ### Get uploaded source files and pdfs:
   @sources = ();
@@ -1174,18 +1173,19 @@ sub submit_assignment {
       "onclick=\"wrap('dwn','$assign','$uid','$pdfs[$i]');\">$pdfs[$i]</a>&nbsp; ";
   }
 
-  $rep .= "\n<script type=\"text/javascript\" " .
-    "src=\"google-code-prettify/run_prettify.js?61\"></script>";
+  $rep .= '<script type="text/javascript" ' .
+    'src="google-code-prettify/run_prettify.js?61"></script>';
   
   ### Include source files:
   for (my $i=0; $i<@sources; $i++) {
-    $rep .= "\n<div id=\"$sources[$i]\" style=\"display:none\" class=\"src\">" . 
-      "<b>$sources[$i]</b>&nbsp;&nbsp; <a href=\"javascript:;\" " .
+    $rep .= "<div id='$sources[$i]' style='display:none' class='src'>" . 
+      "<b>$sources[$i]</b>&nbsp;&nbsp;" .
+      "<a href=\"javascript:;\" " .
       "onclick=\"wrap('dwn','$assign','$uid','$sources[$i]')\">download</a>";
 
     my $source = "$userd/$sources[$i]";
     if ($sources[$i] =~ /\.c$/ || $sources[$i] =~ /\.h$/) {
-      $rep .= "\n<pre class=\"prettyprint lang-c\" id=\"C_lang\">";
+      $rep .= "<pre class='prettyprint lang-c' id='C_lang'>";
       if (-x "$cfg{indent}") {
 	system("$cfg{indent} -kr $source -o $source.indent 2>/dev/null");
 	$rep .= load_file($uid,$assign,"$source.indent",1);
@@ -1195,11 +1195,11 @@ sub submit_assignment {
       }
     }
     else {
-      $rep .= "\n<pre class=\"prettyprint\">";
+      $rep .= "<pre class='prettyprint'>";
       $rep .= load_file($uid,$assign,"$source",1);
     }
     
-    $rep .= "\n</pre></div>"; 
+    $rep .= "</pre></div>"; 
   }
 
   my $grade = 0;
@@ -1228,7 +1228,7 @@ sub submit_assignment {
     }
 
     # Compile:
-    $rep .= "\n<p><b>Compilação:</b>&nbsp;";
+    $rep .= "<p><b>Compilação:</b>&nbsp;";
 
     # Copy files from directory include if one exists:
     my @included = ();
@@ -1306,33 +1306,33 @@ sub submit_assignment {
     my $errf = "$userd/err";
 
     if ($status) {
-      $rep .= 'com erros.<br>' . "\n<div class=\"io\">"; 
+      $rep .= 'com erros.<br><div class="io">'; 
       $rep .= load_file($uid,$assign,$outf,1);
       $rep .= load_file($uid,$assign,$errf,1,2500);
-      $rep .= "</div>\n<p><b>Acerto:</b> 0%";
+      $rep .= '</div><p><b>Acerto:</b> 0%';
       $grade = 0;
     }
     else {
-      if (-s "$errf") {
-	$rep .= "com warnings." . "\n<div class=\"io\">"; 
+      if (-s $errf) {
+	$rep .= 'com warnings <div class="io">'; 
 	$rep .= load_file($uid,$assign,$outf,1);
 	$rep .= load_file($uid,$assign,$errf,1,2500);
-	$rep .= "</div>\n";
+	$rep .= '</div>';
       }
       else {
-	$rep .= "bem sucedida.";
+	$rep .= 'bem sucedida.';
       }
 
       # No test cases:
       if ($ncases == 0) {
-	$rep .= "<p><b>Nenhum caso-de-teste.</b><br>";
+	$rep .= '<p><b>Nenhum caso-de-teste.</b><br>';
 
 	if ($utype eq 'aluno' && exists($cfg{deadline}) && !$dryrun && $days > 0) {
 	  $rep .= "<b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b><br>";
 	  $grade = "recebido +$days";
 	}
 	else {
-	  $rep .= "<b>Recebido.</b><br>";
+	  $rep .= '<b>Recebido.</b><br>';
 	  $grade = 'recebido';
 	}
       }
@@ -1348,7 +1348,7 @@ sub submit_assignment {
 	  rmdir("$userd/__pycache__") or abort($uid,$assign,"rmdir: $userd/__pycache__: $!");
 	}
 
-	$rep .= "\n<p><b>Execução dos casos-de-teste:</b>\n<p>";
+	$rep .= '<p><b>Execução dos casos-de-teste:</b><p>';
 
 	my $cmd = "./sqtpm-etc.sh $uid $assign $language $cfg{cputime} " .
 	  "$cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
@@ -1390,7 +1390,7 @@ sub submit_assignment {
 	    $status = 9;
 	  }
 
-	  $rep .= sprintf("\n%.02d: &nbsp;",$casei);
+	  $rep .= sprintf("%.02d: &nbsp;",$casei);
 
 	  if ($status == 11) {
 	    $rep .= 'violação de memória.<br>';
@@ -1405,8 +1405,8 @@ sub submit_assignment {
 	    (-s $exec_err && !-r $exec_err) and
 	      abort($uid,$assign,"submit: sem permissão $exec_err.");
 	    $rep .= "erro de execução ($status).<br>";
-	    (-s $exec_err) and ($rep .= "\n<div class=\"io\">" .
-				load_file($uid,$assign,$exec_err,0,1000) . "</div>\n");
+	    (-s $exec_err) and ($rep .= '<div class="io">' .
+				load_file($uid,$assign,$exec_err,0,1000) . '</div>');
 	  }
 	  else {
 	    if (exists($cfg{verifier})) {
@@ -1415,12 +1415,12 @@ sub submit_assignment {
 	      $status = ($? >> 8) & 0x00FF;
 
 	      if ($status == 0) {
-		$rep .= "bem sucedido.<br>";
+		$rep .= 'bem sucedido.<br>';
 		$failed{$case} = 0;
 		$passed++;
 	      }
 	      elsif ($status == 1) {
-		$rep .= "saída incorreta.<br>";
+		$rep .= 'saída incorreta.<br>';
 	      }
 	      elsif ($status == 2) {
 		$rep .= 'saída com formatação incorreta.<br>';
@@ -1465,8 +1465,8 @@ sub submit_assignment {
 	  $casei++;
 	}
 	
-	$rep .= "\n<br>Número de casos-de-teste: $ncases." .
-	        "\n<br>Casos-de-teste bem sucedidos: $passed.";
+	$rep .= "<br>Número de casos-de-teste: $ncases." .
+	        "<br>Casos-de-teste bem sucedidos: $passed.";
 
 	my $full_grade ;
 	if ($cfg{'grading'} eq 'total') {
@@ -1485,13 +1485,13 @@ sub submit_assignment {
 	  ($grade < 0) and ($grade = 0);
 	}
 	
-	$rep .= "\n<br><b>Acerto:</b> " . sprintf("%.0f%%", $grade);
+	$rep .= '<br><b>Acerto:</b> ' . sprintf("%.0f%%", $grade);
 	
 	if ($discount > 0 && $full_grade > 0) {
 	  $rep .= sprintf(", desconto de %.0f%% sobre %.0f%% por atraso desde %s.", 
 			  100*$discount, $full_grade, br_date($cfg{deadline}));
 	}
-	$rep .= "<br>\n";
+	$rep .= '<br>';
 
 	# Show the cases that failed and are supposed to be shown:
 	if (exists($cfg{showcases})) {
@@ -1499,26 +1499,25 @@ sub submit_assignment {
 
 	  for (my $i=0; $i<@show; $i++) {
 	    if ($failed{$show[$i]}) {
-	      $rep .= sprintf("\n<br><b>Execução do caso %.02d:</b>",$failed{$show[$i]});
+	      $rep .= sprintf("<br><b>Execução do caso %.02d:</b>",$failed{$show[$i]});
 
-	      $rep .= "\n<p>Entrada:<br><div class=\"io\">";
+	      $rep .= '<p>Entrada:<br><div class="io">';
 	      $rep .= load_file($uid,$assign,"$assign/$show[$i].in",0);
-	      $rep .= "</div>";
+	      $rep .= '</div>';
 
 	      if (!exists($cfg{verifier})) {
-		$rep .= "\n<p>Saída esperada:<br><div class=\"io\">";
+		$rep .= '<p>Saída esperada:<br><div class="io">';
 		$rep .= load_file($uid,$assign,"$assign/$show[$i].out",0);
-		$rep .= "</div>";
+		$rep .= '</div>';
 	      }
 
-	      $rep .= "\n<p>Saída produzida:<br><div class=\"io\">";
+	      $rep .= '<p>Saída produzida:<br><div class="io">';
 	      if (-f "$userd/$show[$i].run.out") {
 		my $size = (-f "$assign/$show[$i].out") ?
 		  int((-s "$assign/$show[$i].out") * 1.2) : 4096;
 		$rep .= load_file($uid,$assign,"$userd/$show[$i].run.out",0,$size);
 	      }
-	      $rep .= "</div>";
-	      $rep .= "\n<hr>";
+	      $rep .= '</div><hr>';
 	    }
 	  }
 	}
@@ -1726,7 +1725,7 @@ sub invoke_moss {
   }
   
   # Redirect:
-  print "<meta http-equiv=\"refresh\" content=\"0; url=$url\">";
+  print "<meta http-equiv='refresh' content='0; url=$url'>";
   print_html_end();
 }
 

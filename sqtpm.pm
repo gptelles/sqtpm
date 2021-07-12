@@ -370,10 +370,11 @@ sub load_file {
 ################################################################################
 # hash load_rep_data($file)
 # 
-# Get data on an assignment report, returning a hash with the
-# following fields: tries, grade, lang, at (with format yyyy-mm-dd hh:mm:ss).
+# Get data from an assignment report header, returning a hash with:
+# tries, grade, lang, at.
 #
-# The field tries is set to 0 if the report file does not exist.
+# tries is set to 0 if the report file does not exist.
+# at has format yyyy-mm-dd hh:mm:ss.
 
 sub load_rep_data {
  

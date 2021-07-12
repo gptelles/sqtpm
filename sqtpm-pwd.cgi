@@ -148,7 +148,3 @@ END
 
   print end_html();
 }
-
-
-
-
