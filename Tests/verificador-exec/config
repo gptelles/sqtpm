@@ -1,0 +1,4 @@
+backup = on
+showcases = 01 02
+languages = C C++
+verifier = @verif-conta

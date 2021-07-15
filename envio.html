@@ -1,0 +1,65 @@
+<h1>Envio de trabalhos</h1>
+
+<p>
+Para enviar um trabalho, selecione o nome do trabalho, a linguagem e
+os arquivos.
+
+<p>
+Os nome dos arquivos que serão enviados não deveriam ter acentos,
+espaços, tabulações, barras ou outros símbolos.
+Melhor usar apenas letras, dígitos, hífens, sublinhados e pontos no
+nome dos arquivos.
+
+<p>
+Os nomes dos arquivos devem ter sufixos de acordo com a linguagem:
+
+<ul>
+<li> C: .c ou .h
+<li> C++: .cpp ou .h
+<li> Pascal: .pas
+<li> Fortran: .f ou .F
+<li> Python3: .py
+<li> Java: .java
+<li> PDF: .pdf
+</ul>
+
+Se o trabalho especificar o envio de arquivos PDF juntamente com o
+código-fonte então eles devem ter .pdf como sufixo.
+
+<p>
+Para as linguagens C, C++ e Java a submissão pode ter um número
+qualquer de arquivos, a menos que haja uma restrição indicada no
+enunciado do trabalho.  Para Java, a função main deve estar em uma
+classe chamada Main.  Para Pascal, Fortran e Python3, a submissão deve
+ter apenas um arquivo.
+
+<p>
+O programa será avaliado pela verificação do resultado da execução com
+alguns casos-de-teste.  Cada caso-de-teste será executado
+redirecionando um arquivo para a entrada padrão e redirecionando a
+saída para outro arquivo, com um comando da forma
+
+<pre>
+programa &lt;caso.in &gt;execucao.out
+</pre>
+
+e depois comparando a saída com a saída esperada usando <tt>diff</tt> 
+
+<pre>
+diff execucao.out caso.out
+</pre>
+
+e usando <tt>diff</tt> ignorando a formatação
+
+<pre>
+diff -q -b -B -i -w execucao.out caso.out
+</pre>
+
+Se houver algum caso-de-teste aberto, o sqtpm exibirá a entrada, a
+saída produzida pelo programa e a saída esperada.
+
+Em alguns trabalhos a saída correta não é única.  Nesses casos o sqtpm
+exibirá apenas a entrada e a saída produzida pelo programa para os
+casos-de-teste abertos.
+
+<hr>

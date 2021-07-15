@@ -1,0 +1,6 @@
+deadline = 2015/07/12 23:59:59
+penalty = 50
+scoring = proportional
+languages = C
+description = enunciado.html
+showcases = 01-conta-tres 02-conta-dez 03-conta-cinco

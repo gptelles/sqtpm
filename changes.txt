@@ -1,0 +1,76 @@
+>v2:
+-New error messages
+-Fortran added
+-penalty directive for delayed practice added 
+-underscore directories are ignored
+-execution in jail added.
+-now(), date_minus() and date_cmp() added.
+
+v3:
+-backup directive added
+-ip included in log, 
+-diff -b -B -i -w to check for formatting errors
+-statement description using browser redirection
+-gzipping only files larger than 5k
+-user files don't need the colon after a new user name
+-previledged user names start with *
+-system commands removed from sqtpm.cfg and hard-codded (why the hell I did that?)
+
+v4:
+-wakeup directive added.
+-validate() added and redundancy removed from receive() and statement().
+-default options moved to sqtpm.cfg and removed from the code.
+-system commands moved to sqtpm.cfg and removed from the code.
+-load_config changed to read both sqtpm.cfg and assignment config.
+-eval_delay_days() added. date_minus_days() and date_cmp() no longer needed.
+-.cor files added.
+
+v5:
+-ellipsis added to long error messages.
+-added css.
+-ordinary report improvement.
+-sqtpm-pass.cgi incorporated into sqtpm.cgi.
+-verify() moved to sqtpm.pm.
+-html report written to file instead of a txt report.
+-many small improvements to the code.
+
+v6:
+-sessions
+-compilation of multiple files C and C++ programs.
+-Test-cases archive download.
+-Help screens improved.
+-User files stored into a directory.
+-Test cases execution dispatched through a wrapper.  Wrappers for
+ local and virtualbox (both with and without a shared directory) were
+ created.  For virtualbox, host-side wrappers were also created.
+-sqtpm-pass.cgi split out of sqtpm.cgi.
+-support to .cor files removed.
+
+v6.1:
+-added keep-open directive.
+-fixed slow diff comparisons introducing a lower-case version of .out files and
+ invoking diff -q only.
+
+v7:
+-moved submit controls to assignment page. JS submit control composition removed.
+-assignment page header improved.
+-encoded histogram into base64. 
+-grades tables are saved to a file and recalculated only when there is a change.
+
+v8
+-python3 added.
+-password encryption changed to SHA.
+-fixed a bug in grades table that displayed users of other assignments.
+-user order in tables changed to users-file order instead of lexicographic.
+-moved some subs around, just for fun.
+
+v9
+-Java added.
+-include directory and include.tgz added.
+-display of dates changed.
+-long log lines shortened.
+-grades tables layout was standardized.
+-option to send source codes mixed with pdfs removed. Directive
+ sources renamed to files, directory pdfnames removed.
+-@ users re-enabled.
+-first submission in dry-run made possible.
