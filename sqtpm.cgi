@@ -142,7 +142,9 @@ sub login_form {
   print header();
   print start_html(-title=>'sqtpm', 
 		   -style=>{-src=>['sqtpm.css']},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'})]);
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			   meta({-name=>'robots',-content=>'noindex'}),
+			   meta({-name=>'googlebot',-content=>'noindex'})]);
 
   print <<END;
 <script type="text/javascript" src="sqtpm.js?61"></script>
@@ -199,14 +201,13 @@ sub home {
     close($DIR);
     
     # Assignments table header:
-    my $tab = '<b>Trabalhos:</b>';
-    $tab .= '<p></p><table class="grid"><tr> <th class="grid">Enunciado</th>';
-    ($utype ne 'aluno') and ($tab .= '<th class="grid">Grupos</th>');
-    $tab .= '<th class="grid">Estado</th>';
-    ($utype ne 'aluno') and ($tab .= '<th class="grid">Abertura</th>');    
-    $tab .= '<th class="grid">Data limite</th>';
-    ($utype eq 'aluno') and ($tab .= '<th class="grid">Último envio</th></tr>');
-    ($utype eq 'prof') and ($tab .= '<th class="grid">Moss</th></tr>');
+    my $tab = '<b>Trabalhos:</b><p></p><table class="grid"><tr><th>Enunciado</th>';
+    ($utype ne 'aluno') and ($tab .= '<th>Grupos</th>');
+    $tab .= '<th>Estado</th>';
+    ($utype ne 'aluno') and ($tab .= '<th>Abertura</th>');    
+    $tab .= '<th>Data limite</th>';
+    ($utype eq 'aluno') and ($tab .= '<th>Último envio</th></tr>');
+    ($utype eq 'prof') and ($tab .= '<th>Moss</th></tr>');
     
     my %groups = ();
 
@@ -222,18 +223,17 @@ sub home {
       }
       
       # Assignment tag:
-      $tab .= '<tr align="center"><td class="grid">' .
+      $tab .= '<tr align="center"><td>' .
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign[$i]');\">$assign[$i]</a></td>";
 
       opendir($DIR,$assign[$i]) or abort($uid,$assign[$i],"home: opendir $assign[$i]: $!");
-      my @group = sort(grep
-		       {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")}
+      my @group = sort(grep {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")}
 		       readdir($DIR));
       close($DIR);
       
       # Groups:
       if ($utype ne 'aluno') {
-	$tab .= '<td class="grid">';
+	$tab .= '<td>';
 	for (my $j=0; $j<@group; $j++) {
 	  my $group = $group[$j];
 	  $group =~ s/\.pass$//;
@@ -245,7 +245,7 @@ sub home {
       }
 
       # State:
-      $tab .= '<td class="grid">';
+      $tab .= '<td>';
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	$tab .= '<font color="DarkOrange">fechado</font>';
       }
@@ -268,13 +268,13 @@ sub home {
 
       # Startup:
       if ($utype ne 'aluno') {
-	$tab .= '<td class="grid">';
+	$tab .= '<td>';
 	$tab .= (exists($cfg{startup}) ?
 		 dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup}) : 'não há') . '</td>';
       }
       
       # Deadline:
-      $tab .= '<td class="grid">';
+      $tab .= '<td>';
       $tab .= (exists($cfg{deadline}) ?
 	       dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
 
@@ -293,7 +293,7 @@ sub home {
       }
       elsif ($utype eq 'prof') { 
 	# Moss launcher:
-	$tab .= '<td class="grid"><a href="javascript:;" ' . 
+	$tab .= '<td><a href="javascript:;" ' . 
 	  "onclick=\"wrap('moss','$assign[$i]');\">comparar</a></td>";
       }
     }
@@ -529,7 +529,9 @@ sub show_about {
   print header();
   print start_html(-title=>'sqtpm', 
 		   -style=>{-src=>['sqtpm.css']},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			   meta({-name=>'robots',-content=>'noindex'}),
+			   meta({-name=>'googlebot',-content=>'noindex'})]);
 
   print '<div class="f85">';
   print_html_file('','bula.html');
@@ -658,14 +660,13 @@ sub show_grades_table {
 	  my $g = $rep{grade};
 	  $g =~ s/\%//;
 	  
-	  $grades{$user} = '<a href="javascript:;"' . 
-	    "onclick=\"wrap('rep','$assign','$user');\">$g</a>";
+	  $grades{$user} = "<a href=\"sqtpm.cgi?action=rep&arg1=$assign&arg2=$user\">$g</a>";
 
 	  (!exists($langs{$rep{lang}})) and ($langs{$rep{lang}} = ());
 	  push(@{$langs{$rep{lang}}},$user);
 
 	  $show++;
-	  ($grades{$user} =~ '>100</a>$') and ($show100++);
+	  ($g == 100) and ($show100++);
 	}
 	else {
 	  $grades{$user} = '-';
@@ -683,9 +684,9 @@ sub show_grades_table {
 
       $tab .= '<div class="f95">'.
 	'<table border=0><tr><td valign="top">' .
-	'<table class="grid">' .
-	'<tr><th class="grid">usuário</th><th class="grid">acertos</th></tr>' .
-	'<tr align=center><td class="grid" colspan=2></td></tr>';
+	'<table class="sgrid">' .
+	'<tr><th>usuário</th><th>acertos</th></tr>' .
+	'<tr><td colspan=2></td></tr>';
 
       my $d;
       if (@users > 45) {
@@ -700,13 +701,13 @@ sub show_grades_table {
       
       for my $user (@users) {
 	$tab .= '<tr align=center>' . 
-	  "<td class='grid'><b>$user</b></td><td class='grid'>$grades{$user}</td></tr>";
+	  "<td><b>$user</b></td><td>$grades{$user}</td></tr>";
 	$c++;
 	if ($c % $d == 0 && $c < $#users) {
 	  $tab .= '</table></td>' .
-	    '<td valign="top"><table class="grid">' .
-	    '<tr><th class="grid">usuário</th><th class="grid">acertos</th></tr>' .
-	    '<tr align=center><td class="grid" colspan=2></td></tr>';
+	    '<td valign="top"><table class="sgrid">' .
+	    '<tr><th>usuário</th><th>acertos</th></tr>' .
+	    '<tr><td colspan=2></td></tr>';
 	}
       }
 
@@ -819,9 +820,9 @@ sub show_grades_table {
 	'<p><table border=0><tr>';
 
       for my $k (@langs) {
-	$tab .= '<td valign="top"><table class="grid">' . 
-	  "<tr><th class='grid'>usuário</th><th class='grid'>$k</th></tr>" .
-	  '<tr align=center><td class="grid" colspan=2></td></tr>';
+	$tab .= '<td valign="top"><table class="sgrid">' . 
+	  "<tr><th>usuário</th><th>$k</th></tr>" .
+	  '<tr><td colspan=2></td></tr>';
 
 	my $show = 0;
 	my $show100 = 0;
@@ -829,17 +830,14 @@ sub show_grades_table {
 	
 	for my $user (sort(@users)) {
 	  $tab .= '<tr align=center>' . 
-	    "<td class='grid'><b>$user</b></td><td class='grid'>$grades{$user}</td></tr>";
+	    "<td><b>$user</b></td><td>$grades{$user}</td></tr>";
 	  ($grades{$user} ne '-') and ($show++);
 	  ($grades{$user} =~ '>100</a>$') and ($show100++);
 	}
 	
 	my $n = @users;
-	$tab .= '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>' .
-	  sprintf("<td class='grid'>%i / %i<br>%.0f%%</td></tr>",$show,$n,($n>0?100*$show/$n:0)) .
-	  '<tr align=center><td class="grid"><b>100%</b><br><b>%</b></td>' .
-	  sprintf("<td class='grid'>%i / %i<br>%.0f%%</td></tr>",
-		  $show100,$show,($show>0?100*$show100/$show:0)) .
+	$tab .= '<tr><td><b>100%</b><br><b>%</b></td>' .
+	  sprintf("<td>%i / %i<br>%.0f%%</td></tr>",$show100,$show,($show>0?100*$show100/$show:0)) .
 	  '</table>' .
 	  '</td><td></td>';
       }
@@ -885,7 +883,7 @@ sub show_all_grades_table {
 
   for (my $i=0; $i<@users; $i++) {
     $users[$i] =~ s/^[\*@]?//;
-  }    
+  }
 
   # Build the structure: $grades{assignment}{id} = grade.
   my %grades = ();
@@ -899,8 +897,8 @@ sub show_all_grades_table {
       if ($rep{tries} > 0) {
 	$rep{grade} =~ s/%//;
 	$rep{grade} =~ s/recebido/r/;
-	$grades{$amnts[$i]}{$user} = '<a href="javascript:;"' . 
-	  "onclick=\"wrap('rep','$amnts[$i]','$user');\">$rep{grade}</a>";
+	$grades{$amnts[$i]}{$user} =
+	  "<a href=\"sqtpm.cgi?action=rep&arg1=$amnts[$i]&arg2=$user\">$rep{grade}</a>";
       }
       else {
 	$grades{$amnts[$i]}{$user} = '-';
@@ -928,42 +926,42 @@ sub show_all_grades_table {
   print "<b>Acertos para $n usuários em $passf:</b></p>";
 
   print '<div style="overflow-x:scroll"><div class="f95">' .
-    '<table class="grid">';
-
-  print '<tr align=center><td class="grid"><b>enviados</b></td>';
-  #print '<tr align=center><td class="grid"><b>enviados</b><br><b>%</b></td>';
+    '<table class="sgrid">' .
+    '<tr><td><b>enviados</b></td>';
+  
   for my $amnt (@amnts) {
-    printf("<td class='grid'>%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
+    printf("<td>%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
   }
   print '</tr>';
     
-  print '<tr align=center><td class="grid"><b>100%</b></td>';
+  print '<tr><td><b>100%</b></td>';
   for my $amnt (@amnts) {
-    printf("<td class='grid'>%i (%.0f%%)</td>",
+    printf("<td>%i (%.0f%%)</td>",
 	   ($show100{$amnt},($show{$amnt}>0 ? 100*$show100{$amnt}/$show{$amnt} : 0.0)));
   }
   print '</tr>';
 
-  print "<tr align=center><td class='grid' colspan=$n></td></tr>";
+  print "<tr><td colspan=$n></td></tr>";
 
-  print '<tr><th class="grid">usuário</th>';
+  print '<tr><th>usuário</th>';
   for my $amnt (@amnts) {
-    print "<th class='grid'>$amnt</th>";
+    print "<th>$amnt</th>";
   }
   print '</tr>';
 
-  print "<tr align=center><td class='grid' colspan=$n></td></tr>";
+  print "<tr><td colspan=$n></td></tr>";
 
   @users = sort(@users);
 
   for my $user (@users) {
-    print "<tr align=center><td class='grid'><b>$user</b>";
+    print "<tr><td><b>$user</b>";
     for my $amnt (@amnts) {
-      print "<td class='grid'>$grades{$amnt}{$user}</td>";
+      print "<td>$grades{$amnt}{$user}</td>";
     }
     print '</tr>';
   }
 
+  print "<tr><td colspan=$n></td></tr>";
   print '</table></div></div>';
   print_html_end();
 }
@@ -1630,17 +1628,18 @@ sub submit_assignment {
     my $scr = $session->param('screen');
     
     my $i = index($scr,">$assign<");
-    $i += index(substr($scr,$i),'<td ') + 3;
-    $i += index(substr($scr,$i),'<td ') + 3;
+    $i += index(substr($scr,$i),'<td>') + 3;
+    $i += index(substr($scr,$i),'<td>') + 3;
     $i += index(substr($scr,$i),'<td ');
 
     my $j = index(substr($scr,$i),'<tr ');
     ($j == -1) and ($j = index(substr($scr,$i),'</table>'));
     $j += $i;
     
-    $session->param('screen', 
-		    substr($scr,0,$i) . "<td class=\"grid\"><a href=\"javascript:;\"" .
-		    " onclick=\"wrap('rep','$assign');\">$grade</a></td>" . substr($scr,$j));
+    $session->param('screen', substr($scr,0,$i) .
+		    "<td class=\"grid\"><a href=\"javascript:;\"" .
+		    " onclick=\"wrap('rep','$assign');\">$grade</a></td>" .
+		    substr($scr,$j));
   }
 }
 

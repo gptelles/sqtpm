@@ -42,9 +42,11 @@ sub setpasswd {
   }
 
   print header();
-  print start_html(-title=>'sqtpm', -style=>{-src=>['sqtpm.css'], -media=>'all'},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'})]);
-
+  print start_html(-title=>'senhas sqtpm', -style=>{-src=>['sqtpm.css']},
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			   meta({-name=>'robots',-content=>'noindex'}),
+			   meta({-name=>'googlebot',-content=>'noindex'})]);
+  
   print '<div class="f85"><h1>senhas sqtpm</h1>';
 
   # Check user and passwords:
@@ -98,9 +100,11 @@ sub setpasswd {
 sub passwd_form {
 
   print header();
-  print start_html(-title=>'sqtpm', -style=>{-src=>['sqtpm.css'], -media=>'all'},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'})]);
-
+  print start_html(-title=>'senhas sqtpm', -style=>{-src=>['sqtpm.css']},
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			   meta({-name=>'robots',-content=>'noindex'}),
+			   meta({-name=>'googlebot',-content=>'noindex'})]);
+  
   print '<div class="f85"><h1>senhas sqtpm</h1>';
 
   print <<END;

@@ -1,13 +1,13 @@
->v2:
+v2:
 -New error messages
 -Fortran added
--penalty option for delayed practice added 
+-penalty directive for delayed practice added 
 -underscore directories are ignored
 -execution in jail added.
 -now(), date_minus() and date_cmp() added.
 
 v3:
--backup option added
+-backup directive added
 -ip included in log, 
 -diff -b -B -i -w to check for formatting errors
 -statement description using browser redirection
@@ -17,7 +17,7 @@ v3:
 -system commands removed from sqtpm.cfg and hard-codded (why the hell I did that?)
 
 v4:
--wakeup option added.
+-wakeup directive added.
 -validate() added and redundancy removed from receive() and statement().
 -default options moved to sqtpm.cfg and removed from the code.
 -system commands moved to sqtpm.cfg and removed from the code.
@@ -47,7 +47,7 @@ v6:
 -support to .cor files removed.
 
 v6.1:
--added keep-open option.
+-added keep-open directive.
 -fixed slow diff comparisons introducing a lower-case version of .out files and
  invoking diff -q only.
 
@@ -61,17 +61,17 @@ v8
 -python3 added.
 -password encryption changed to SHA.
 -fixed a bug in grades table that displayed users of other assignments.
--users order in tables changed to users-file order instead of lexicographic.
+-user order in tables changed to users-file order instead of lexicographic.
 -moved some subs around, just for fun.
 
 v9
--java added.
--include directory and include.tgz added.
--display of dates changed to dd/mm/yyyy.
--long log lines shortened.
--grades tables layout was standardized.
--the sending of source codes mixed with pdfs was disabled. Option
- sources was renamed to files, option pdfnames was removed.
+-submission method changed to get in grades tables to enable opening in other tab.
 -@ users re-enabled.
 -first submission in dry-run made possible.
--users order in tables changed back to lexicographic.
+-include directory and include.tgz added.
+-display of dates changed.
+-long log lines shortened.
+-grades tables layout was standardized.
+-option to send source codes mixed with pdfs removed. Directive
+ sources renamed to files, directory pdfnames removed.
+-Java added.
