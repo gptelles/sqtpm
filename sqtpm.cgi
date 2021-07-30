@@ -125,7 +125,8 @@ else {
     show_help(param('arg1').'.html');
   }
   elsif ($action eq 'moss') {
-    invoke_moss($session->param('uid'),param('arg1'));
+    invoke_moss($session->param('uid'),$session->param('utype'),$session->param('upassf'),
+		param('arg1'),0);
   }
   else {
     home(0);
@@ -284,7 +285,7 @@ sub home {
 	
 	if (exists($rep{grade})) {
 	  $tab .= '<td class="grid"><a href="javascript:;" ' .
-	    "onclick=\"wrap('rep','$assign[$i]');\">$rep{grade}</a>";
+	    "onclick=\"wrap('rep','$assign[$i]','$uid');\">$rep{grade}</a>";
 	}
 	else {
 	  $tab .= '<td class="grid">não houve';
@@ -336,22 +337,28 @@ sub show_subm_report {
   my $upassf = $session->param('upassf');
 
   my $assign = param('arg1');
-  my $user = param('arg2');
+  my $suid = param('arg2');
 
   print_html_start(0,'saida',0);
+
+  # Check if user is in the assignment and his type:
+  passf_in_assign($uid,$upassf,$assign);
+
+  if ($utype eq 'aluno') {
+    ($uid ne $suid) and block_user($uid,$upassf,"show_report: aluno $uid nao pode ver $suid.");
+  }
+  else {
+    # * and @ users may see reports of other users:
+    $uid = $suid;
+  }
   
-  check_assign_access($uid,$upassf,$assign);
-
-  ($utype ne 'aluno' && $user ne 'undefined') and ($uid = $user);
-
   my $userd = "$assign/$uid";
   my $reportf = "$userd/$uid.rep";
 
   (!-e $reportf) and 
     block_user($uid,$upassf,"show_report: não existe arquivo $reportf.");
 
-  # Print report:
-  open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_subm_report: open $reportf: $!");
+  open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report: open $reportf: $!");
   while (<$FILE>) {
     print $_;
   }
@@ -372,7 +379,8 @@ sub show_statement {
 
   print_html_start();
 
-  check_assign_access($uid,$upassf,$assign);
+  # Check if the user is in the assignment:
+  passf_in_assign($uid,$upassf,$assign);
 
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
   my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
@@ -444,7 +452,7 @@ sub show_statement {
     if (-f $repf) {
       my %rep = load_rep_data($repf);
       print "<p><b>Último envio:</b> " .
-	"<a href=\"javascript:;\" onclick=\"wrap('rep','$assign');\">$rep{grade} em " .
+	"<a href=\"javascript:;\" onclick=\"wrap('rep','$assign','$uid');\">$rep{grade} em " .
 	br_date($rep{at}) . '</a>';
       print "<br>Envios: $rep{tries}"; 
     }
@@ -564,8 +572,10 @@ sub download_file {
   my $suid = param('arg2');
   my $file = param('arg3');
 
-  # Check user access rights to assignment:
-  check_assign_access($uid,$upassf,$assign);
+  # Check if the user is in the assignment and his type:
+  passf_in_assign($uid,$upassf,$assign);
+  ($utype eq 'aluno' && $uid ne $suid) and
+    block_user($uid,$upassf,"download_file: aluno $uid nao pode acessar $suid.");
 
   # Check file existance:
   if ($file eq 'casos-de-teste.tgz') {
@@ -576,10 +586,9 @@ sub download_file {
   }
   else {
     $file = "$assign/$suid/$file";
-    if ($utype eq 'aluno') {
-      ($suid ne $uid) and block_user($uid,$upassf,"download_file: $suid e $uid são diferentes.");
-      (!-f $file) and block_user($uid,$upassf,"download_file: $assign/$uid/$file não existe.");
-    }
+    # Only * and @ users may download files of other users:
+    ($utype eq 'aluno' && !-f $file) and
+      block_user($uid,$upassf,"download_file: $assign/$uid/$file não existe.");
   }
 
   # Download:
@@ -607,8 +616,10 @@ sub show_grades_table {
 
   print_html_start();
 
-  check_assign_access($uid,$upassf,$assign);
-
+  # Check user type and whether he is in the assignment:
+  ($utype eq 'aluno') and block_user($uid,$upassf,"grades_table: $uid não é prof ou monitor.");
+  passf_in_assign($uid,$upassf,$assign);
+  
   my $tabfile = "$assign/$passf";
   $tabfile =~ s/\.pass$//;
   $tabfile .= ".grades"; 
@@ -688,26 +699,22 @@ sub show_grades_table {
 	'<tr><th>usuário</th><th>acertos</th></tr>' .
 	'<tr><td colspan=2></td></tr>';
 
-      my $d;
-      if (@users > 45) {
-	$d = int(@users / 3) + (@users % 3 ? 1 : 0);
-      }
-      else {
-	$d = @users+1;
-      }
       my $c = 0;
-
+      my $d = 0;
+      
       @users = sort(@users);
       
       for my $user (@users) {
 	$tab .= '<tr align=center>' . 
 	  "<td><b>$user</b></td><td>$grades{$user}</td></tr>";
 	$c++;
-	if ($c % $d == 0 && $c < $#users) {
+	$d++;
+	if ($d == 28 && $c < @users) {
 	  $tab .= '</table></td>' .
 	    '<td valign="top"><table class="sgrid">' .
 	    '<tr><th>usuário</th><th>acertos</th></tr>' .
 	    '<tr><td colspan=2></td></tr>';
+	  $d = 0;
 	}
       }
 
@@ -866,7 +873,8 @@ sub show_all_grades_table {
 
   print_html_start();
   
-  ($utype ne 'prof') and block_user($uid,$upassf,"show_all: $uid não é prof.");
+  # Check user type:
+  ($utype ne 'prof') and block_user($uid,$upassf,"all_grades: $uid não é prof.");
 
   # Get a list of assignments for the user:
   opendir(my $DIR,'.') or abort($uid,'','all_grades: opendir root: $!');
@@ -989,8 +997,8 @@ sub submit_assignment {
   # Check assign:
   (!$assign) and abort($uid,'',"Selecione um trabalho.");
 
-  # Check access:
-  check_assign_access($uid,$upassf,$assign);
+  # Check if the user is in the assignment:
+  passf_in_assign($uid,$upassf,$assign);
 
   # Load system and assignment configs:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
@@ -1638,7 +1646,7 @@ sub submit_assignment {
     
     $session->param('screen', substr($scr,0,$i) .
 		    "<td class=\"grid\"><a href=\"javascript:;\"" .
-		    " onclick=\"wrap('rep','$assign');\">$grade</a></td>" .
+		    " onclick=\"wrap('rep','$assign','$uid');\">$grade</a></td>" .
 		    substr($scr,$j));
   }
 }
@@ -1649,10 +1657,15 @@ sub submit_assignment {
 sub invoke_moss {
 
   my $uid = shift;
+  my $utype = shift;
+  my $upassf = shift;
   my $assign = shift;
-  my $recursive = shift;
+  my $reentering = shift;
 
-  (!$recursive) and print_html_start();
+  (!$reentering) and print_html_start();
+
+  # Check user type:
+  ($utype ne 'prof') and block_user($uid,$upassf,"invoke_moss: $uid não é prof.");
 
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
   my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
@@ -1718,7 +1731,7 @@ sub invoke_moss {
 
     if ($url !~ /^http:/) {
       unlink("$assign/moss.run");
-      invoke_moss($uid,$assign,1);
+      invoke_moss($uid,$utype,$upassf,$assign,1);
       abort($uid,$assign,"A execução do Moss falhou.");
     }
   }
@@ -1904,13 +1917,12 @@ sub abort_login {
 
 
 ################################################################################
-# int check_assign_access($user, $pass_file, $assignment)
+# int passf_in_assign($user, $pass_file, $assignment)
 #
-# Verify whether the user has an assignment, that is, whether the pass file
-# (that should contain the user) is linked to an assignment.
+# Verify whether pass_file is linked to an assignment.
 # Return 1 if it is or invoke block_user() on the user otherwise.
 
-sub check_assign_access {
+sub passf_in_assign {
 
   my $uid = shift;
   my $upassf = shift;
