@@ -6,50 +6,62 @@
 uid=$1
 assign=$2
 lang=$3
-cputime=$4
-virtmem=$5
-stkmem=$6
+progname=$4
+cputime=$5
+virtmem=$6
+stkmem=$7
 
 umask 0000
 
 userd="_${uid}_tmp_"
 date=`/bin/date +%d%b%y-%H%M%S`
-tmpd="$date-$$"
+tmpd="/mnt/aux/$date-$$"
 
-mkdir $assign/$userd/$tmpd 
+mkdir $tmpd 
 if [[ $? -ne 0 ]]; then
-  echo "$date sqtpm-etc-localhost.sh mkdir $assign/$userd/$tmpd failed." >>sqtpm-etc.log
+  echo "$date sqtpm-etc-localhost.sh mkdir $tmpd failed" 2>&1 >>sqtpm-etc.log
+  echo "uid=$1 assign=$2 lang=$3 progname=$4 cputime=$5 virtmem=$6 stkmem=$7" 2>&1 >>sqtpm-etc.log
   exit 129
 fi
 
-cd $assign &>/dev/null
+cd $assign 
 cases=(`ls *.in`)
-
-\cp -p *.in $userd/$tmpd
-
-if [[ -d extra-files ]]; then
-  \cp -rp extra-files/* $userd/$tmpd 
-fi
-
-cd $userd &>/dev/null
-
-\cp -p elf $tmpd
-
-cd $tmpd &>/dev/null
 
 for case in ${cases[@]}; do
   prefix=${case%\.in}
 
-  if [[ "$lang" == "Python3" ]]; then 
-    bash -c "ulimit -c 0 -t $cputime; python3 ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
-  elif [[ "$lang" == "Java" ]]; then 
-    bash -c "ulimit -c 0 -t $cputime; java -jar ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
-  else
-    bash -c "ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+  \cp -p $case $tmpd
+  \cp -p $userd/$progname $tmpd
+
+  if [[ -d extra-files ]]; then
+    \cp -rp extra-files/* $tmpd 
   fi
+
+  chmod -R o+rw $tmpd/*
+  
+  if [[ "$lang" == "Python3" ]]; then
+    if [[ "$progname" == "elf.tar" ]]; then
+      sudo -u sqtpm -- bash -c "cd $tmpd; tar -xf $progname; ulimit -c 0 -t $cputime; python3 -B main.py <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+    else
+      sudo -u sqtpm -- bash -c "cd $tmpd; ulimit -c 0 -t $cputime; python3 -B $progname <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+    fi      
+      
+  elif [[ "$lang"  == "Octave" ]]; then  
+    sudo -u sqtpm -- bash -c "cd $tmpd; ulimit -c 0 -t $cputime; octave-cli $progname <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+    
+  elif [[ "$lang" == "Java" ]]; then 
+    sudo -u sqtpm -- bash -c "cd $tmpd; ulimit -c 0 -t $cputime; /opt/jdk/bin/java -jar $progname <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+    
+  else
+    chmod  o+x $tmpd/elf
+    sudo -u sqtpm -- bash -c "cd $tmpd; ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; ./elf <$case 1>$prefix.run.out 2>$prefix.run.err; echo \$? >$prefix.run.st"
+  fi
+
+  chown www-data:www-data $tmpd/*.run.{out,err,st}
+  
+  \cp $tmpd/*.run.{out,err,st} $userd 
+  \rm $tmpd/*.run.{out,err,st} $tmpd/$case
 done
 
-\mv *.run.{out,err,st} ..
-
-cd .. &>/dev/null
+cd .. 
 \rm -rf $tmpd

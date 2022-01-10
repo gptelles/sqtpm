@@ -8,20 +8,20 @@ sharedd='/mnt/aux'
 uid=$1
 assign=$2
 lang=$3
-cputime=$4
-virtmem=$5
-stkmem=$6
+progname=$4
+cputime=$5
+virtmem=$6
+stkmem=$7
 
 date=`/bin/date +%d%b%y-%H%M%S`
 
-# Bail out if sqtpm VM is not registered:
+# Bail out if sqtpm VM is not registered or off:
 st=`/usr/bin/vboxmanage showvminfo sqtpm 2>/dev/null` 
 if [[ $? -ne 0 ]]; then
   echo "$date sqtpm-etc-vbox-shared.sh unable to get info on VM sqtpm." 2>&1 >>sqtpm-etc.log
   exit 129;
 fi
 
-# Bail out if sqtpm VM is off:
 st=`echo "$st" | grep "^State" | sed -e "s/  */ /g" | cut -f 2 -d ' '`
 if [[ "$st"  == "powered" ]]; then 
   exit 131;
@@ -56,12 +56,13 @@ for inputf in *.in; do
   # directory in the assignment:
 
   \cp $inputf $tmpd
-  \cp $userd/elf $tmpd
+  \cp $userd/$progname $tmpd
+  
   if [[ -d extra-files ]]; then
     \cp -r extra-files/* $tmpd
   fi
 
-  vboxmanage guestcontrol sqtpm --username sqtpm --password senha run --exe /home/sqtpm/vbox-etc-shared.sh --wait-stdout --wait-stderr -- vbox-etc-shared.sh $dir $inputf $lang $cputime $virtmem $stkmem
+  vboxmanage guestcontrol sqtpm --username sqtpm --password senha run --exe /home/sqtpm/vbox-etc-shared.sh --wait-stdout --wait-stderr -- vbox-etc-shared.sh $dir $inputf $lang $progname $cputime $virtmem $stkmem
 
   tag=${inputf/.in/}
   \mv $tmpd/$tag.run.{out,err,st} $userd
