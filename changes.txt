@@ -36,7 +36,7 @@ v5:
 
 v6:
 -sessions
--compilation of multiple files C and C++ programs.
+-compilation of multiple-files C and C++ programs.
 -Test-cases archive download.
 -Help screens improved.
 -User files stored into a directory.
@@ -68,10 +68,18 @@ v9
 -submission method changed to get in grades tables to enable opening in other tab.
 -@ users re-enabled.
 -first submission in dry-run made possible.
--include directory and include.tgz added.
--display of dates changed.
+-added include directory and include.tgz.
+-display of dates changed to dd/mm/yyyy.
 -long log lines shortened.
 -grades tables layout was standardized.
--option to send source codes mixed with pdfs removed. Directive
- sources renamed to files, directory pdfnames removed.
+-the sending of source codes mixed with pdfs was disabled. Option
+ sources was renamed to files, option pdfnames was removed.
 -Java added.
+
+v10
+-Octave added, which triggered the addition of another argument to sqtpm-etc.
+-python3-args option dropped.
+-Moss submission link split into a link per language.
+-Flags were added to the head of sqtpm.cgi to enable/diasable ordering
+ users in grades tables and breaking grades tables in columns.
+-offline added.
