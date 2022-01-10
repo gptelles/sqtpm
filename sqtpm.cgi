@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
-# This file is part of sqtpm 9.
-# Copyright 2003-2021 Guilherme P. Telles.
+# This file is part of sqtpm 10.
+# Copyright 2003-2022 Guilherme P. Telles.
 # sqtpm is distributed under the terms of WTFPL v2.
 
 use CGI qw(:standard -no_xhtml);
@@ -27,6 +27,10 @@ $CGI::POST_MAX = 50000; # bytes
 
 umask(0007);
 
+# Flags:
+$sort_tables = 1;  # sort grades tables of assignments and groups by username.
+$break_tables = 1; # break grades tables of assignments at every 28 lines.
+
 
 # Globals:
 my %sys_cfg = ();
@@ -50,6 +54,13 @@ my $sid = $cgi->cookie('CGISESSID') || $cgi->param('CGISESSID') || undef;
 (defined($sid) && !-f "$sessiond/$sprefix-$sid") and (undef $sid);
 
 my $action = param('action');
+
+# If there is an offline file, show a notice screen and close all sessions:
+if (-f 'offline') {
+  offline();
+  unlink(glob "$sessiond/$sprefix*");
+  exit(0);
+}
 
 if (!defined($sid)) {
   if (!defined($action)) {
@@ -89,7 +100,7 @@ if (!defined($sid)) {
 }
 else {
   $session = new CGI::Session("driver:File",$sid,{Directory=>$sessiond}) ||
-    abort_login('',"Erro ao recuperar a sessão: $!");
+    abort_login('',"Erro ao recuperar a sessão : $!");
   
   if (!$session->param('uid')) {
     $session->delete();
@@ -126,7 +137,7 @@ else {
   }
   elsif ($action eq 'moss') {
     invoke_moss($session->param('uid'),$session->param('utype'),$session->param('upassf'),
-		param('arg1'),0);
+		param('arg1'),param('arg2'));
   }
   else {
     home(0);
@@ -135,6 +146,20 @@ else {
 
 exit(0);
 
+
+sub offline {
+
+  print header();
+  print start_html(-title=>'sqtpm', 
+		   -style=>{-src=>['sqtpm.css']},
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			   meta({-name=>'robots',-content=>'noindex'}),
+			   meta({-name=>'googlebot',-content=>'noindex'})]);
+
+  print '<div class="f85"><h1>sqtpm</h1>O sqtpm está indisponível no momento.<hr></div>';
+
+  print end_html();
+}
 
 
 ################################################################################
@@ -195,14 +220,19 @@ sub home {
     %sys_cfg = load_keys_values('sqtpm.cfg');
     
     # Grab assignments for the user:
-    opendir(my $DIR,'.') or abort('','','home: opendir root: $!');
+    opendir(my $DIR,'.') or abort('','','home : opendir root : $!');
     my @assign = sort(grep
 		      {-d $_ && !/^\./ && -e "$_/config" && -l "$_/$upassf" && stat("$_/$upassf")} 
 		      readdir($DIR));
     close($DIR);
-    
+
+    my %groups = (); # a hash for pass files linked by any assignment.
+
+    # The assignments table in home window:
+    my $tab = ''; 
+
     # Assignments table header:
-    my $tab = '<b>Trabalhos:</b><p></p><table class="grid"><tr><th>Enunciado</th>';
+    $tab = '<b>Trabalhos:</b><p></p><table class="grid"><tr><th>Enunciado</th>';
     ($utype ne 'aluno') and ($tab .= '<th>Grupos</th>');
     $tab .= '<th>Estado</th>';
     ($utype ne 'aluno') and ($tab .= '<th>Abertura</th>');    
@@ -210,42 +240,40 @@ sub home {
     ($utype eq 'aluno') and ($tab .= '<th>Último envio</th></tr>');
     ($utype eq 'prof') and ($tab .= '<th>Moss</th></tr>');
     
-    my %groups = ();
-
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
       my %cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
-
-      # If this is a student and the assignment is still closed, skip it:
+	
+      # If the user is a student and the assignment is still closed, skip it:
       if ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	splice(@assign,$i,1);
 	$i--;  
 	next;
       }
-      
-      # Assignment tag:
+	
+      # Assignment name:
       $tab .= '<tr align="center"><td>' .
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign[$i]');\">$assign[$i]</a></td>";
-
-      opendir($DIR,$assign[$i]) or abort($uid,$assign[$i],"home: opendir $assign[$i]: $!");
-      my @group = sort(grep {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")}
-		       readdir($DIR));
-      close($DIR);
-      
-      # Groups:
+	
+      # Groups, ie, pass files linked from the assignment:
       if ($utype ne 'aluno') {
+	opendir($DIR,$assign[$i]) or abort($uid,$assign[$i],"home : opendir $assign[$i] : $!");
+	my @group = sort(grep {/\.pass$/ && -l "$assign[$i]/$_" && stat("$assign[$i]/$_")}
+		       readdir($DIR));
+	close($DIR);
+      
 	$tab .= '<td>';
 	for (my $j=0; $j<@group; $j++) {
 	  my $group = $group[$j];
 	  $group =~ s/\.pass$//;
-	  $tab .= '<a href="javascript:;" ' . 
+	  $tab .= '<a href="javascript:;" ' .
 	    "onclick=\"wrap('scr','$group','$assign[$i]');\">$group</a>&nbsp; ";
 	  $groups{$group} = 1;
 	}
 	$tab =~ s/&nbsp; $/<\/td>/;
       }
-
-      # State:
+      
+      # Assignment state:
       $tab .= '<td>';
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	$tab .= '<font color="DarkOrange">fechado</font>';
@@ -256,7 +284,7 @@ sub home {
 	  $tab .= '<font color="MediumBlue">aberto</font>';
 	}
 	elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	  $tab .= '<font color="MediumBlue">dry-run</font>';
+	  $tab .= '<font color="Teal">dry-run</font>';
 	}
 	else {
 	  $tab .= 'encerrado';
@@ -266,7 +294,7 @@ sub home {
 	$tab .= '<font color="MediumBlue">aberto</font>'
       }
       $tab .= '</td>';
-
+      
       # Startup:
       if ($utype ne 'aluno') {
 	$tab .= '<td>';
@@ -278,7 +306,7 @@ sub home {
       $tab .= '<td>';
       $tab .= (exists($cfg{deadline}) ?
 	       dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
-
+      
       if ($utype eq 'aluno') {
 	# Last submisson grade:
 	my %rep = load_rep_data("$assign[$i]/$uid/$uid.rep");
@@ -293,30 +321,50 @@ sub home {
 	$tab .= '</td>';
       }
       elsif ($utype eq 'prof') { 
-	# Moss launcher:
-	$tab .= '<td><a href="javascript:;" ' . 
-	  "onclick=\"wrap('moss','$assign[$i]');\">comparar</a></td>";
+	# Moss launchers:
+	my @aux = split(/ +/,$cfg{languages});
+	(!@aux) && (@aux = split(/ +/,$sys_cfg{languages}));
+	
+	for ($j=@aux-1; $j>=0; $j--) {
+	  if (lc($aux[$j]) eq 'pdf') {
+	    splice(@aux,$j,1);
+	  }
+	}
+	
+	$tab .= '<td>';
+	if (@aux) {
+	  my $j;
+	  for ($j=0; $j<@aux-1; $j++) {
+	    $tab .= '<a href="javascript:;" ' . 
+	      "onclick=\"wrap('moss','$assign[$i]','$aux[$j]');\">$aux[$j]</a> &nbsp;";
+	  }
+	  $tab .= '<a href="javascript:;" ' . 
+	    "onclick=\"wrap('moss','$assign[$i]','$aux[$j]');\">$aux[$j]</a>";
+	}
+	else {
+	  $tab .= '-';
+	}
+	$tab .= '</td>';
       }
     }
     $tab .= '</table>';
 
-    # If there are no assignments, drop tab:
     if (@assign == 0) {
       $tab = "<p>Não há trabalhos para $uid.</p>";
     }
     
     # Links for grade tables:
-    my @groups = sort keys(%groups);
-    
-    if ($utype eq 'prof' && @groups) {
-      $tab .= "<p><b>Tabelas de acertos:</b>";
-      $tab .= '<br>&nbsp;&nbsp;';
-      
-      for (my $j=0; $j<@groups; $j++) {
-      	$tab .= '<a href="javascript:;" ' .
-	  "onclick=\"wrap('asc','$groups[$j]');\">$groups[$j]</a>&nbsp; ";
+    if ($utype eq 'prof') {
+      my @groups = sort keys(%groups);
+      if (@groups) {
+	$tab .= "<p><b>Tabelas de acertos:</b>";
+	$tab .= '<br>&nbsp;&nbsp;';
+	for (my $j=0; $j<@groups; $j++) {
+	  $tab .= '<a href="javascript:;" ' .
+	    "onclick=\"wrap('asc','$groups[$j]');\">$groups[$j]</a>&nbsp; ";
+	}
+	$tab .= '';#'</p>';
       }
-      $tab .= '';#'</p>';
     }
 
     $scr .= $tab;
@@ -345,7 +393,7 @@ sub show_subm_report {
   passf_in_assign($uid,$upassf,$assign);
 
   if ($utype eq 'aluno') {
-    ($uid ne $suid) and block_user($uid,$upassf,"show_report: aluno $uid nao pode ver $suid.");
+    ($uid ne $suid) and block_user($uid,$upassf,"show_report : aluno $uid não pode ver $suid.");
   }
   else {
     # * and @ users may see reports of other users:
@@ -356,9 +404,9 @@ sub show_subm_report {
   my $reportf = "$userd/$uid.rep";
 
   (!-e $reportf) and 
-    block_user($uid,$upassf,"show_report: não existe arquivo $reportf.");
+    block_user($uid,$upassf,"show_report : não existe arquivo $reportf.");
 
-  open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report: open $reportf: $!");
+  open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report : open $reportf : $!");
   while (<$FILE>) {
     print $_;
   }
@@ -387,13 +435,13 @@ sub show_statement {
 
   # If the assignment is not open yet and the user is a student, this is strange:
   ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) and
-    block_user($uid,$upassf,"show_st: o prazo para enviar $assign não começou");
+    block_user($uid,$upassf,"show_st : o prazo para enviar $assign não começou");
 
   print "<b>Trabalho:</b> $assign";
   print '<table><tr><td style="vertical-align:top">';
 
-  # Pascal, Fortran and Python are limited to a single source file:
-  ($cfg{languages} eq 'Pascal' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Python3') and
+  # Octave, Fortran and Pascal are limited to a single source file:
+  ($cfg{languages} eq 'Octave' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Pascal') and
     ($cfg{files} = '1,1');
    
   (exists($cfg{startup})) and print "Data de abertura: " . br_date($cfg{startup}) . '<br>';
@@ -409,9 +457,10 @@ sub show_statement {
     }
     else {
       if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	print ' (dry-run)<br>'; 
+	print ' (encerrado)<br>'; 
 	if ($utype eq 'aluno') {
-	  print 'Aberto apenas para envio que não substitui o último envio no prazo.<br>';
+	  print '<font color="Teal">dry-run: ' . 
+	    'é possível enviar mas sem substituir o último envio no prazo.</font><br>';
 	  $cfg{tries} += 10;
 	}
       }
@@ -448,21 +497,32 @@ sub show_statement {
   }
 
   if ($utype eq 'aluno') {
+
+    my $tryed = 0;
+    my $tryed_at = undef;
+    my $tryed_grade;
+    
     my $repf = "$assign/$uid/$uid.rep";
-    if (-f $repf) {
+    if (-e $repf) {
       my %rep = load_rep_data($repf);
+      $tryed = $rep{tries};
+      $tryed_at = $rep{at};
+      $tryed_grade = $rep{grade};
+    }
+    
+    my $dryf = "$assign/$uid/$uid.dryrun.rep";
+    if (-e $dryf) {
+      %rep = load_rep_data($dryf);
+      $tryed = $rep{tries};
+    }
+
+    if (defined $tryed_at) {
       print "<p><b>Último envio:</b> " .
-	"<a href=\"javascript:;\" onclick=\"wrap('rep','$assign','$uid');\">$rep{grade} em " .
-	br_date($rep{at}) . '</a>';
-      print "<br>Envios: $rep{tries}"; 
+	"<a href=\"javascript:;\" " .
+	"onclick=\"wrap('rep','$assign','$uid');\">$tryed_grade em " . br_date($tryed_at) . '</a>';
     }
-    elsif ($open) {
-      my $dryf = "$assign/$uid/dryrun.txt";
-      if (-f $dryf) {
-	my %rep = load_rep_data($dryf);
-	print "<p>Envios: $rep{tries}"; 
-      }
-    }
+
+    print "<br>Envios: $tryed";
   }
   else {
     print '<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>' .
@@ -477,7 +537,7 @@ sub show_statement {
 
   # Groups:
   if ($utype ne 'aluno') {
-    opendir(my $DIR,$assign) or abort($uid,$assign,"home: opendir $assign: $!");
+    opendir(my $DIR,$assign) or abort($uid,$assign,"home : opendir $assign : $!");
     @aux = sort(grep {/\.pass$/ && -l "$assign/$_" && stat("$assign/$_")} readdir($DIR));
     close($DIR);
     
@@ -523,7 +583,7 @@ sub show_statement {
     }
   }
   else {
-    print "<p>Não há enunciado para $assign.";
+    print '<p><hr>';
   }
 
   print_html_end();
@@ -574,8 +634,6 @@ sub download_file {
 
   # Check if the user is in the assignment and his type:
   passf_in_assign($uid,$upassf,$assign);
-  ($utype eq 'aluno' && $uid ne $suid) and
-    block_user($uid,$upassf,"download_file: aluno $uid nao pode acessar $suid.");
 
   # Check file existance:
   if ($file eq 'casos-de-teste.tgz') {
@@ -586,15 +644,18 @@ sub download_file {
   }
   else {
     $file = "$assign/$suid/$file";
-    # Only * and @ users may download files of other users:
-    ($utype eq 'aluno' && !-f $file) and
-      block_user($uid,$upassf,"download_file: $assign/$uid/$file não existe.");
+    
+    # Students may not dig around:
+    if ($utype eq 'aluno') {
+      ($uid ne $suid) and block_user($uid,$upassf,"download_file : $uid não pode acessar $file.");
+      (!-f $file) and block_user($uid,$upassf,"download_file : $assign/$uid/$file não existe.");
+    }
   }
-
+    
   # Download:
   print "Content-Type:application/x-download\nContent-Disposition:attachment;filename=$file\n\n";
   
-  open(my $FILE,'<',$file) or abort($uid,$assign,"download_file: open $file: $!");
+  open(my $FILE,'<',$file) or abort($uid,$assign,"download_file : open $file : $!");
   binmode $FILE;
   while (<$FILE>) {
     print $_;
@@ -628,7 +689,7 @@ sub show_grades_table {
 
   # If the table exists already, load it from file.
   if (-f $tabfile) {
-    open(my $F,'<',$tabfile) or abort($uid,$assign,"show_grades_table: open $tabfile: $!");
+    open(my $F,'<',$tabfile) or abort($uid,$assign,"show_grades_table : open $tabfile : $!");
     {
       local $/;
       $tab = <$F>;
@@ -655,15 +716,20 @@ sub show_grades_table {
       %grades = ();
       %langs = ();
 
+      my $onlystd = 1;
       for (my $i=0; $i<@users; $i++) {
+	if ($onlystd && $users[$i] =~ /^[\*@]/) {
+	  $onlystd = 0;
+	}
 	$users[$i] =~ s/^[\*@]?//;
       }    
 
       my $show = 0;
       my $show100 = 0;
 
-      $tab = "<b>Acertos para os $n usuários de $passf em $assign:</b>";
-      
+      $tab = "<b>Acertos para os $n usuários de $passf em " .
+	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign');\">$assign</a>:</b>";
+	
       for my $user (@users) {
 	my %rep = load_rep_data("$assign/$user/$user.rep");
 
@@ -677,7 +743,7 @@ sub show_grades_table {
 	  push(@{$langs{$rep{lang}}},$user);
 
 	  $show++;
-	  ($g == 100) and ($show100++);
+	  ($g ne 'recebido' && $g == 100) and ($show100++);
 	}
 	else {
 	  $grades{$user} = '-';
@@ -693,7 +759,7 @@ sub show_grades_table {
 
       (@langs == 1) and ($tab .= "<br>&emsp;Todos em $langs[0]");
 
-      $tab .= '<div class="f95">'.
+      $tab .= '<p></p><div class="f95">' .
 	'<table border=0><tr><td valign="top">' .
 	'<table class="sgrid">' .
 	'<tr><th>usuário</th><th>acertos</th></tr>' .
@@ -702,14 +768,16 @@ sub show_grades_table {
       my $c = 0;
       my $d = 0;
       
-      @users = sort(@users);
+      if ($sort_tables) {
+	@users = sort(@users);
+      }
       
       for my $user (@users) {
 	$tab .= '<tr align=center>' . 
 	  "<td><b>$user</b></td><td>$grades{$user}</td></tr>";
 	$c++;
 	$d++;
-	if ($d == 28 && $c < @users) {
+	if ($break_tables && $d == 28 && $c < @users) {
 	  $tab .= '</table></td>' .
 	    '<td valign="top"><table class="sgrid">' .
 	    '<tr><th>usuário</th><th>acertos</th></tr>' .
@@ -724,7 +792,12 @@ sub show_grades_table {
       if ($cfg{backup} eq 'on') {
 	%gusers = map { $_ => 1 } @users; # %gusers is used by wanted_hist.
 	@ggrades = ();                    # @ggrades is modified by wanted_hist.    
-
+	$st = 0;                          # $st and $dl are used by wanted_hist.
+	$dl = 0;
+	
+	($onlystd && exists($cfg{startup})) and ($st = $cfg{startup});
+	($onlystd && exists($cfg{deadline})) and ($dl = $cfg{deadline});
+	
 	find(\&wanted_hist,"$assign");
 	
 	if (@ggrades) {
@@ -735,8 +808,9 @@ sub show_grades_table {
 
 	  my %uniq = ();
 	  my %uniq100 = ();
-	  
+
 	  for (my $i=0; $i<@ggrades; $i+=3) {
+  
 	    if (exists($freq{"$ggrades[$i]"})) {
 	      $freq{"$ggrades[$i]"}++;
 	    }
@@ -765,7 +839,7 @@ sub show_grades_table {
 	  my @aux = sort { $a cmp $b } keys(%freq);
 	  my $first = $aux[0];
 	  my $last = $aux[$#aux];
-	  
+
 	  if (exists($cfg{startup})) {
 	    $cfg{startup} =~ /(.*) .*/;
 	    ($first gt $1) and ($first = $1);
@@ -774,9 +848,8 @@ sub show_grades_table {
 	  if (exists($cfg{deadline})) {
 	    $cfg{deadline} =~ /(.*) .*/;
 	    ($last lt $1) and ($last = $1);
-	    $last =~ s/-/\//g;
 	  }
-	  
+
 	  my ($y, $m, $d) = split(/\//,$first);
 	  $first = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
 	  ($y, $m, $d) = split(/\//,$last);
@@ -851,7 +924,7 @@ sub show_grades_table {
     }
 
     # Save table to file. submit_assignment() will remove it:
-    open(my $F,'>',$tabfile) or abort($uid,$assign,"show_grades_table: open $tabfile: $!");
+    open(my $F,'>',$tabfile) or abort($uid,$assign,"show_grades_table : open $tabfile : $!");
     print $F $tab;
     close($F);    
   }
@@ -877,7 +950,7 @@ sub show_all_grades_table {
   ($utype ne 'prof') and block_user($uid,$upassf,"all_grades: $uid não é prof.");
 
   # Get a list of assignments for the user:
-  opendir(my $DIR,'.') or abort($uid,'','all_grades: opendir root: $!');
+  opendir(my $DIR,'.') or abort($uid,'','all_grades : opendir root : $!');
   my @amnts = sort(grep { -d $_ && !/^\./ && -f "$_/config" && -l "$_/$passf" } readdir($DIR));
   close($DIR);
   
@@ -953,13 +1026,16 @@ sub show_all_grades_table {
 
   print '<tr><th>usuário</th>';
   for my $amnt (@amnts) {
+    #print "<th><a href=\"javascript:;\" onclick=\"wrap('stm','$amnt');\">$amnt</a></th>";
     print "<th>$amnt</th>";
   }
   print '</tr>';
 
   print "<tr><td colspan=$n></td></tr>";
 
-  @users = sort(@users);
+  if ($sort_tables) {
+    @users = sort(@users);
+  }
 
   for my $user (@users) {
     print "<tr><td><b>$user</b>";
@@ -1006,6 +1082,9 @@ sub submit_assignment {
 
   my $days = (exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0);
 
+  # Check language:
+  ($language) or abort($uid,$assign,'Selecione uma linguagem.');
+
   # Check whether the assignment is open:
   if ($utype eq 'aluno') {    
     if (exists($cfg{deadline}) && $days*$cfg{penalty} >= 100) {
@@ -1017,30 +1096,28 @@ sub submit_assignment {
       }
       
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
-	block_user($uid,$upassf,"submit: o prazo para enviar $assign não começou.");
+	block_user($uid,$upassf,"submit : o prazo para enviar $assign não começou.");
       }
     }
   }
-  
-  # Check language:
-  ($language) or abort($uid,$assign,'Selecione uma linguagem.');
 
-  my %langs = ('C'=>0,'C++'=>0,'Fortran'=>0,'Pascal'=>0,'Python3'=>0,'Java'=>0,'PDF'=>0);
+  my %langs = ('C'=>0,'PDF'=>0,'Fortran'=>0,'C++'=>0,'Pascal'=>0,
+	       'Python3'=>0,'Java'=>0,'Octave'=>0);
   
   (exists($langs{$language})) or
-    block_user($uid,$upassf,"submit: não há linguagem $language.");
+    block_user($uid,$upassf,"submit : não há linguagem $language.");
 
   (grep(/$language/,split(/\s+/,$cfg{languages}))) or
-    block_user($uid,$upassf,"submit: $assign não pode ser enviado em $language.");
+    block_user($uid,$upassf,"submit : $assign não pode ser enviado em $language.");
   
   # Check the number of uploading files and their names: 
   my %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
-	      'Python3'=>'py','Java'=>'java','PDF'=>'pdf');
+	      'Python3'=>'py','Java'=>'java','Octave'=>'m','PDF'=>'pdf');
   
   my @sources = grep(/\.$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
 
-  # Pascal, Fortran and Python are limited to a single source file:
-  if ($language eq 'Pascal' || $language eq 'Fortran' || $language eq 'Python3') {
+  # Octave, Fortran and Pascal are limited to a single source file:
+  if ($language eq 'Octave' || $language eq 'Fortran' || $language eq 'Pascal') {
     ($cfg{files} = '1,1');
   }
 
@@ -1052,6 +1129,18 @@ sub submit_assignment {
     else {
       if (" $cfg{filenames} " !~ / Main.java /) {
 	$cfg{filenames} .= " Main.java";
+      }
+    }
+  }
+
+  # A main.py is required for python if there is more than one source file:
+  if ($language eq 'Python3' && @sources > 1) {
+    if (!exists($cfg{filenames})) {
+      $cfg{filenames} = "main.py";
+    }
+    else {
+      if (" $cfg{filenames} " !~ / main.py /) {
+	$cfg{filenames} .= " main.py";
       }
     }
   }
@@ -1085,35 +1174,43 @@ sub submit_assignment {
     abort($uid,$assign,"Número ou nomes de arquivos incorretos",1);
   }
   
-  # Get the number of previous submissions from an existing report file:
-  my $tries = 0;
-  if (-e "$assign/$uid/$uid.rep") {
-    my %rep = load_rep_data("$assign/$uid/$uid.rep");
-    $tries = $rep{tries};
-  }
+  # Get the number of previous submissions from an existing dry-run or report file:
+  my $tryed = 0;
+  my $tryed_at = undef;
   
-  if ($dryrun && $tries == 0) {
-    my $dryf = "$assign/$uid/dryrun.txt";
-    if (-e "$dryf") {
-      my %rep = load_rep_data($dryf);
-      $tries = $rep{tries};
+  my $dryf = "$assign/$uid/$uid.dryrun.rep";
+  if (-e $dryf) {
+    my %rep = load_rep_data($dryf);
+    $tryed = $rep{tries};
+    $tryed_at = $rep{at};
+  }
+  else {
+    my $repf = "$assign/$uid/$uid.rep";
+    if (-e $repf) {
+      my %rep = load_rep_data($repf);
+      $tryed = $rep{tries};
+      $tryed_at = $rep{at};
     }
   }
+  
+  my $try = $tryed+1;
 
   # Check the maximum number of submissions:
   ($dryrun) and ($cfg{tries} += 10);
-  ($utype eq 'aluno' && $tries >= $cfg{tries}) and 
+  ($utype eq 'aluno' && $tryed >= $cfg{tries}) and 
     abort($uid,$assign,"Você não pode enviar $assign mais uma vez.");
 
 
-  ### Create a directory:
+  ### Create a temp directory:
   my $userd = "$assign/_${uid}_tmp_";
-  mkdir($userd) or abort($uid,$assign,"submit: mkdir " . cwd() . " $userd: $!");
+  mkdir($userd) or abort($uid,$assign,"submit : mkdir " . cwd() . " $userd : $!");
   
-  ### Report header:
   my $now = format_epoch(time);
+
+  ### Report header:
   my $rep = "<b>Usuário: $uid</b>";
-  $rep .= "<br><b>Trabalho: $assign</b>";
+  $rep .= '<br><b>Trabalho: ' .
+    "<a href=\"javascript:;\" onclick=\"wrap('stm','$assign');\">$assign</a></b>";
 
   if (exists($cfg{deadline})) {
     $rep .= "<br>Data limite para envio: " . br_date($cfg{deadline});
@@ -1122,16 +1219,16 @@ sub submit_assignment {
   }
 
   if ($utype eq 'aluno') {
-    $dryrun and
-      ($rep .= "<br>O prazo terminou. Este envio não substitui o último envio no prazo.");
+    if ($dryrun) {
+      $rep .= '<br><font color="Teal">O prazo terminou. ' .
+	'Este envio não substitui o último envio no prazo.</font>';
+    }
   }
   else {
     $rep .= "<br>$uid: envios sem restrições de linguagem e prazo.";
   }
   
-  $tries++;
-  $rep .= "<br>Este envio: $tries&ordm;, " . br_date($now);
-
+  $rep .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
   $rep .= "<br>Linguagem: $language";
   $rep .= (@uploads == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
 
@@ -1143,8 +1240,8 @@ sub submit_assignment {
   for (my $i=0; $i<@fh; $i++) {
     ($uploads[$i] !~ /\.$exts{$language}$/ || $uploads[$i] !~ /^[a-zA-Z0-9_\.\-]+$/) and next;
 
-    open(my $SOURCE,'>',"$userd/$uploads[$i]") || 
-      abort($uid,$assign,"submit: open $userd/$uploads[$i]: $!");
+    open(my $SOURCE,'>',"$userd/$uploads[$i]") or 
+      abort($uid,$assign,"submit : open $userd/$uploads[$i] : $!");
 
     my $fh = $fh[$i];
     if ($uploads[$i] =~ /\.pdf$/) {
@@ -1169,7 +1266,7 @@ sub submit_assignment {
 
   @sources = sort { $a cmp $b } @sources;  
 
-  ### Include links for sources and documents:
+  ### Insert links for sources and documents:
   for (my $i=0; $i<@sources; $i++) {
     $rep .= '<a href="javascript:;" ' . 
       "onclick=\"toggleDiv('$sources[$i]');\">$sources[$i]</a>&nbsp;";
@@ -1182,27 +1279,30 @@ sub submit_assignment {
   $rep .= '<script type="text/javascript" ' .
     'src="google-code-prettify/run_prettify.js?61"></script>';
   
-  ### Include source files:
+  ### Insert source files:
   for (my $i=0; $i<@sources; $i++) {
     $rep .= "<div id='$sources[$i]' style='display:none' class='src'>" . 
       "<b>$sources[$i]</b>&nbsp;&nbsp;" .
       "<a href=\"javascript:;\" " .
       "onclick=\"wrap('dwn','$assign','$uid','$sources[$i]')\">download</a>";
-
+    #$rep .= "<style> .prettyprint ol.linenums > li { list-style-type: decimal; } </style>";
+    
     my $source = "$userd/$sources[$i]";
     if ($sources[$i] =~ /\.c$/ || $sources[$i] =~ /\.h$/) {
+      #$rep .= "<pre class='prettyprint linenums lang-c' id='C_lang'>";
       $rep .= "<pre class='prettyprint lang-c' id='C_lang'>";
       if (-x "$cfg{indent}") {
 	system("$cfg{indent} -kr $source -o $source.indent 2>/dev/null");
 	$rep .= load_file($uid,$assign,"$source.indent",1);
       }
       else {
-	$rep .= load_file($uid,$assign,"$source",1);
+	$rep .= load_file($uid,$assign,$source,1);
       }
     }
     else {
+      #$rep .= "<pre class='prettyprint linenums'>";
       $rep .= "<pre class='prettyprint'>";
-      $rep .= load_file($uid,$assign,"$source",1);
+      $rep .= load_file($uid,$assign,$source,1);
     }
     
     $rep .= "</pre></div>"; 
@@ -1224,7 +1324,7 @@ sub submit_assignment {
   }
   else {
     # Load test-case names early to produce correct error messages:
-    opendir(my $DIR,"$assign") or abort($uid,$assign,"submit: opendir $assign: $!");
+    opendir(my $DIR,"$assign") or abort($uid,$assign,"submit : opendir $assign : $!");
     @test_cases = sort(grep {/\.in$/ && -f "$assign/$_"} readdir($DIR));
     close($DIR);
 
@@ -1234,24 +1334,28 @@ sub submit_assignment {
     }
 
     # Compile:
-    $rep .= "<p><b>Compilação:</b>&nbsp;";
-
+    if ($language ne 'Octave' && $language ne 'Python3') {
+      $rep .= "<p><b>Compilação:</b>&nbsp;";
+    }
+    
     # Copy files from directory include if one exists:
     my @included = ();
     if (-d "$assign/include") {
       @included = glob("$assign/include/*");
       for my $file (@included) {
-	copy($file, $userd) or abort($uid,$assign,"submit: copy: $!");
+	copy($file, $userd) or abort($uid,$assign,"submit : copy : $!");
       }
     }
-    
+
+    # Setup compilation by language:
     my $compcmd;
+    my $srcname = 'elf';
     
     if ($language eq 'C') {
-      (-x $cfg{gcc}) or abort($uid,$assign,"submit: $cfg{gcc} inválido");
+      (-x $cfg{gcc}) or abort($uid,$assign,"submit : gcc $cfg{gcc} inválido");
       (exists($cfg{'gcc-args'})) or ($cfg{'gcc-args'} = '');
       
-      open(my $MAKE,'>',"$userd/Makefile") || abort($uid,$assign,"submit: write Makefile: $!");
+      open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile : $!");
       print $MAKE "CC = $cfg{gcc}\n" .
 	'CFLAGS = ' . $cfg{'gcc-args'} . "\n" .
 	'SRC = $(wildcard *.c)' . "\n" .
@@ -1260,32 +1364,47 @@ sub submit_assignment {
       close($MAKE);    
       $compcmd = "$cfg{'make'}";
     }
+
     elsif ($language eq 'Python3') {
-      (-x $cfg{python3}) or abort($uid,$assign,"submit: $cfg{python3} inválido");
-      (exists($cfg{'python3-args'})) or ($cfg{'python3-args'} = '');
-      $compcmd = "$cfg{python3} $cfg{'python3-args'} -m py_compile $sources[0]";
+      if (@sources == 1) {
+	$srcname = $sources[0];
+      }
+      else {
+	$cmd = "cd $userd; $cfg{tar} -cf elf.tar *.py";
+	system($cmd);
+	my $status = ($? >> 8) & 0x00FF;
+	($status) and abort($uid,undef,"submit : system $cmd (status $status) : $!");
+	$srcname = 'elf.tar';
+      }
     }
+
+    elsif ($language eq 'Octave') {
+      $srcname = $sources[0];
+    }
+    
     elsif ($language eq 'Java') {
-      (-x "$cfg{jdk}/javac") or abort($uid,$assign,"submit: $cfg{jdk}/javac inválido");
-      (-x "$cfg{jdk}/jar") or abort($uid,$assign,"submit: $cfg{jdk}/jar inválido");
+      (-x "$cfg{jdk}/javac") or abort($uid,$assign,"submit : javac $cfg{jdk}/javac inválido");
+      (-x "$cfg{jdk}/jar") or abort($uid,$assign,"submit : $cfg{jdk}/jar inválido");
       (exists($cfg{'javac-args'})) or ($cfg{'javac-args'} = '');
 
-      open(my $MF,'>',"$userd/manifest.txt") or	abort($uid,$assign,"submit: write manifest: $!");
+      open(my $MF,'>',"$userd/manifest.txt") or	abort($uid,$assign,"submit : write manifest: $!");
       print $MF "Main-Class: Main\n";
       close($MF);
 
-      open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit: write Makefile: $!");
+      open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile: $!");
       print $MAKE "elf: \n" . 
 	"\t$cfg{'jdk'}/javac $cfg{'javac-args'} *.java; " .
-	"$cfg{'jdk'}/jar cvfm elf manifest.txt *.class\n";
+	"$cfg{'jdk'}/jar cvfm elf.jar manifest.txt *.class\n";
       close($MAKE);
       $compcmd = "$cfg{'make'}";
+      $srcname = 'elf.jar';
     }
+    
     elsif ($language eq 'C++') {
-      (-x $cfg{'g++'}) or abort($uid,$assign,"submit: $cfg{'g++'} inválido");
+      (-x $cfg{'g++'}) or abort($uid,$assign,"submit : g++ $cfg{'g++'} inválido");
       (exists($cfg{'g++-args'})) or ($cfg{'g++-args'} = '');
 
-      open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit: write Makefile: $!");
+      open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile: $!");
       print $MAKE "CC = $cfg{'g++'}\n" .
 	'CFLAGS = ' . $cfg{'g++-args'} . "\n" .
 	'SRC = $(wildcard *.cpp)' . "\n" .
@@ -1294,19 +1413,28 @@ sub submit_assignment {
       close($MAKE);
       $compcmd = "$cfg{'make'}";
     }
+    
     elsif ($language eq 'Fortran') {
-      (-x $cfg{gfortran}) or abort($uid,$assign,"submit: $cfg{gfortran} inválido");
+      (-x $cfg{gfortran}) or abort($uid,$assign,"submit : gfortran $cfg{gfortran} inválido");
       (exists($cfg{'gfortran-args'})) or ($cfg{'gfortran-args'} = '');
       $compcmd = "$cfg{gfortran} $cfg{'gfortran-args'} $sources[0] -o elf";
     }
+    
     elsif ($language eq 'Pascal') {
-      (-x $cfg{gpc}) or abort($uid,$assign,"submit: $cfg{gpc} inválido");
+      (-x $cfg{gpc}) or abort($uid,$assign,"submit : gpc $cfg{gpc} inválido");
       (exists($cfg{'gpc-args'})) or ($cfg{'gpc-args'} = '');
       $compcmd = "$cfg{gpc} $cfg{'gpc-args'} --executable-file-name=elf --automake $sources[0]";
     }
 
+    # Compile:
+    my $status;
+    if ($language ne 'Octave' && $language ne 'Python3') {
+      $status = system("cd $userd; $compcmd 1>out 2>err");
+    }
+    else {
+      $status = 0;
+    }
 
-    my $status = system("cd $userd; $compcmd 1>out 2>err");
     my $elff = "$userd/elf";
     my $outf = "$userd/out";
     my $errf = "$userd/err";
@@ -1315,8 +1443,22 @@ sub submit_assignment {
       $rep .= 'com erros.<br><div class="io">'; 
       $rep .= load_file($uid,$assign,$outf,1);
       $rep .= load_file($uid,$assign,$errf,1,2500);
-      $rep .= '</div><p><b>Acerto:</b> 0%';
-      $grade = 0;
+      $rep .= '</div>';
+      
+      if ($ncases == 0) {
+	if ($utype eq 'aluno' && exists($cfg{deadline}) && !$dryrun && $days > 0) {
+	  $rep .= "<p><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b><br>";
+	  $grade = "recebido +$days";
+	}
+	else {
+	  $rep .= '<p><b>Recebido.</b><br>';
+	  $grade = 'recebido';
+	}
+      }
+      else {
+	$rep .= '<p><b>Acerto:</b> 0%';
+	$grade = 0;
+      }
     }
     else {
       if (-s $errf) {
@@ -1326,7 +1468,9 @@ sub submit_assignment {
 	$rep .= '</div>';
       }
       else {
-	$rep .= 'bem sucedida.';
+	if ($language ne 'Octave' && $language ne 'Python3') {
+	  $rep .= 'bem sucedida.';
+	}
       }
 
       # No test cases:
@@ -1346,23 +1490,15 @@ sub submit_assignment {
       # Dispatch test cases execution:
       else {
 
-	# Python requires renaming after compiling:
-	if ($language eq 'Python3') {
-	  @pyc = glob("$userd/__pycache__/*.pyc");
-	  rename($pyc[0],"$userd/elf") or abort($uid,$assign,"rename: $pyc[0] elf: $!");
-	  unlink(glob "$userd/__pycache__/*");
-	  rmdir("$userd/__pycache__") or abort($uid,$assign,"rmdir: $userd/__pycache__: $!");
-	}
-
 	$rep .= '<p><b>Execução dos casos-de-teste:</b><p>';
 
-	my $cmd = "./sqtpm-etc.sh $uid $assign $language $cfg{cputime} " .
+	my $cmd = "./sqtpm-etc.sh $uid $assign $language $srcname $cfg{cputime} " .
 	  "$cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
 
 	system($cmd);
 
 	my $status = ($? >> 8) & 0x00FF;
-	($status) and abort($uid,$assign,"submit: system $cmd (status $status): $!");
+	($status) and abort($uid,$assign,"submit : system $cmd (status $status) : $!");
 
 	# Adjust verifier path:
 	(exists $cfg{verifier}) and ($cfg{verifier} =~ s/\@/$assign\//);
@@ -1379,9 +1515,9 @@ sub submit_assignment {
 	  my $exec_out = "$userd/$case.run.out";
 	  my $exec_err = "$userd/$case.run.err";
 
-	  (!-r $case_in) and abort($uid,$assign,"submit: sem permissão $case_in.");
-	  (-s $exec_st && !-r $exec_st) and abort($uid,$assign,"submit: sem permissão $exec_st.");
-	  (!-r $exec_out) and abort($uid,$assign,"submit: sem permissão $exec_out.");
+	  (!-r $case_in) and abort($uid,$assign,"submit : sem permissão $case_in.");
+	  (-s $exec_st && !-r $exec_st) and abort($uid,$assign,"submit : sem permissão $exec_st.");
+	  (!-r $exec_out) and abort($uid,$assign,"submit : sem permissão $exec_out.");
 
 	  $failed{$case} = $casei;
 	  my $status;
@@ -1409,7 +1545,7 @@ sub submit_assignment {
 	  }
 	  elsif ($status > 0 || -s $exec_err) {
 	    (-s $exec_err && !-r $exec_err) and
-	      abort($uid,$assign,"submit: sem permissão $exec_err.");
+	      abort($uid,$assign,"submit : sem permissão $exec_err.");
 	    $rep .= "erro de execução ($status).<br>";
 	    (-s $exec_err) and ($rep .= '<div class="io">' .
 				load_file($uid,$assign,$exec_err,0,1000) . '</div>');
@@ -1432,11 +1568,11 @@ sub submit_assignment {
 		$rep .= 'saída com formatação incorreta.<br>';
 	      }
 	      else {
-		abort($uid,$assign,"submit: Erro ao executar o verificador $cmd.");
+		abort($uid,$assign,"submit : Erro ao executar o verificador $cmd.");
 	      }
 	    }
 	    else {
-	      (!-r $case_out) and abort($uid,$assign,"submit: sem permissão $case_out.");
+	      (!-r $case_out) and abort($uid,$assign,"submit : sem permissão $case_out.");
 
 	      system("$cfg{diff} -q $case_out $exec_out >/dev/null 2>&1");
 	      $status = ($? >> 8) & 0x00FF;
@@ -1460,11 +1596,11 @@ sub submit_assignment {
 		  $rep .= 'saída incorreta.<br>';
 		}
 		else {
-		  abort($uid,$assign,"submit: erro ao executar diff $case_out.lc $exec_out.lc.");
+		  abort($uid,$assign,"submit : erro ao executar diff $case_out.lc $exec_out.lc.");
 	        }
 	      }
 	      else {
-		abort($uid,$assign,"submit: erro ao executar diff $case_out $exec_out.");
+		abort($uid,$assign,"submit : erro ao executar diff $case_out $exec_out.");
 	      }
 	    }
 	  }
@@ -1494,7 +1630,7 @@ sub submit_assignment {
 	$rep .= '<br><b>Acerto:</b> ' . sprintf("%.0f%%", $grade);
 	
 	if ($discount > 0 && $full_grade > 0) {
-	  $rep .= sprintf(", desconto de %.0f%% sobre %.0f%% por atraso desde %s.", 
+	  $rep .= sprintf(" (desconto de %.0f%% sobre %.0f%% por atraso desde %s.)", 
 			  100*$discount, $full_grade, br_date($cfg{deadline}));
 	}
 	$rep .= '<br>';
@@ -1509,21 +1645,30 @@ sub submit_assignment {
 
 	      $rep .= '<p>Entrada:<br><div class="io">';
 	      $rep .= load_file($uid,$assign,"$assign/$show[$i].in",0);
+	      $rep =~ s/\n$/\n\n/;
 	      $rep .= '</div>';
 
 	      if (!exists($cfg{verifier})) {
 		$rep .= '<p>Saída esperada:<br><div class="io">';
 		$rep .= load_file($uid,$assign,"$assign/$show[$i].out",0);
+		$rep =~ s/\n$/\n\n/;
 		$rep .= '</div>';
 	      }
 
-	      $rep .= '<p>Saída produzida:<br><div class="io">';
-	      if (-f "$userd/$show[$i].run.out") {
-		my $size = (-f "$assign/$show[$i].out") ?
-		  int((-s "$assign/$show[$i].out") * 1.2) : 4096;
-		$rep .= load_file($uid,$assign,"$userd/$show[$i].run.out",0,$size);
+	      if (-s "$userd/$show[$i].run.out" == 0) {
+		$rep .= '<p>Saída produzida: não houve<hr>';
 	      }
-	      $rep .= '</div><hr>';
+	      else {
+		$rep .= '<p>Saída produzida:<br><div class="io">';
+		
+		if (-f "$userd/$show[$i].run.out") {
+		  my $size = (-f "$assign/$show[$i].out") ?
+		    int((-s "$assign/$show[$i].out") * 1.2) : 1024;
+		  $rep .= load_file($uid,$assign,"$userd/$show[$i].run.out",0,$size);
+		  $rep =~ s/\n$/\n\n/;
+		}
+		$rep .= '</div><hr>';
+	      }
 	    }
 	  }
 	}
@@ -1542,8 +1687,15 @@ sub submit_assignment {
       }
     }
     
-    ($language eq 'Java') and unlink(glob "$userd/*.class");
-    ($language ne 'Python3') and unlink(glob "$userd/*.o");
+    if ($language eq 'Java') {
+      unlink(glob "$userd/*.class");
+    }
+    elsif ($language eq 'Python3') {
+      unlink("$userd/elf.tar");
+    }
+    else {
+      unlink(glob "$userd/*.o");
+    }
     
     for my $case (@test_cases) {
       (-e "$userd/$case.run.st")  and unlink("$userd/$case.run.st");
@@ -1553,84 +1705,86 @@ sub submit_assignment {
     }
   }
   
-  ### Add data to ease parsing the report later and a QED:
-  $rep = "<!--lang:$language-->\n<!--grade:$grade-->\n<!--tries:$tries-->\n<!--at:$now-->\n" . $rep;
+  ### Add data to ease parsing the report later:
+  $rep = "<!--lang:$language-->\n<!--grade:$grade-->\n" .
+         "<!--tries:${try}-->\n<!--at:$now-->\n" . $rep;
   
-  if (!$dryrun) {
-    my $repf = "$userd/$uid.rep";
-    open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit: open $repf: $!");
-    print $REPORT $rep;
-    close($REPORT);
+  if ($rep !~ /<hr>$/) {
+    $rep .= '<hr>';
   }
-  
+
   print $rep;
   print end_html();
 
-  # Remove grades report to force future update, if any:
+  ### Remove grades report to force future update, if any:
   my $tabfile = "$assign/$upassf";
-  $tabfile =~ s/\.pass$//;
-  $tabfile .= ".grades";
-  
+  $tabfile =~ s/\.pass$/.grades/;
   (-f $tabfile) and unlink($tabfile);
+
+  ### If backup is on but the directory doesn't exist, create it:
+  my $backupd = "$assign/backup";
+  if ($cfg{backup} eq 'on' && !-d $backupd) {
+    (-e $backupd) and abort($uid,$assign,"submit : $backupd is not a directory.");
+    mkdir($backupd) or abort($uid,$assign,"submit : mkdir $backupd : $!");
+  }
+
+  ### Save report:
+  my $repf = "$userd/$uid.rep";
+  open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit : open $repf : $!");
+  print $REPORT $rep;
+  close($REPORT);
+
+  ### Backup:
+  $prevd = "$assign/$uid";
   
-  ### Move previous assignment and rename $userd:
-  if (!$dryrun) {
-    if ($tries > 1) {
+  if ($utype ne 'aluno' || ($utype eq 'aluno' && !$dryrun)) {
+    # Backup or remove previous submission:
+    if (-d $prevd) {
       if ($cfg{backup} eq 'on') {
-	my $date = format_epoch((stat("$assign/$uid/$uid.rep"))[9]);
-	$date =~ s/[:\/]//g;
-	$date =~ s/ /-/g;
-	
-	my $backupd = "$assign/backup";
-	if (!-d $backupd) {
-	  (-e $backupd) and abort($uid,$assign,"submit: $backupd is a file");
-	  mkdir($backupd) or abort($uid,$assign,"submit: mkdir $backupd: $!");
-	}
-	
-	$tries--;
-	rename("$assign/$uid","$backupd/$uid.$tries.$date") || 
-	  abort($uid,$assign,"submit: mv backup $assign/$uid $backupd/$uid.$tries.$date: $!");
-	$tries++;
+	$tryed_at =~ s/[:\/]//g;
+	$tryed_at =~ s/ /-/g;
+	rename($prevd,"$backupd/$uid.$tryed.$tryed_at") or 
+	  abort($uid,$assign,"submit : mv prev $prevd $backupd/$uid.$tryed.$tryed_at : $!");
+      }
+      else {
+	unlink(glob "$prevd/*");
+	rmdir($prevd);
       }
     }
-    if (-d "$assign/$uid") {
-      unlink(glob "$assign/$uid/*");
-      rmdir("$assign/$uid");
-    }
-    rename($userd,"$assign/$uid") or abort($uid,$assign,"submit: mv $userd $assign/$uid: $!");
-  }
-  else {
-    unlink(glob "$userd/*");
-    rmdir("$userd");
 
-    my $repf = "$assign/$uid/$uid.rep";
-    if (-f $repf) {
-      my $rep = load_file($uid,$assign,$repf,0);
-      $rep =~ s/--tries:\d+--/--tries:$tries--/;
-      open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit: open $repf: $!");
-      print $REPORT $rep;
-      close($REPORT);
+    # Rename current submission dir:
+    rename($userd,$prevd) or abort($uid,$assign,"submit $tryed : mv curr $userd $prevd : $!");
+
+    add_to_log($uid,$assign,$grade);
+  }  
+  else {
+    # Backup or remove the current submission.
+
+    # Previous submission will prevail, save dryrun.rep in it:
+    if (!-d $prevd) {
+      mkdir($prevd) or abort($uid,$assign,"submit dry-run : mkdir " . cwd() . " $prevd : $!");
+    }
+    
+    my $repf = "$prevd/$uid.dryrun.rep";
+    open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit : open $repf : $!");
+    print $REPORT $rep;
+    close($REPORT);
+    
+    # Move current submission to backup or remove it: 
+    if ($cfg{backup} eq 'on') {
+      $now =~ s/[:\/]//g;
+      $now =~ s/ /-/g;
+      rename("$userd","$backupd/$uid.${try}.$now.dry") or
+	abort($uid,$assign,"submit : mv backup $userd $backupd/$uid.${try}.$now.dry : $!");
     }
     else {
-      $userd = "$assign/$uid";
-      my $dryf = "$assign/$uid/dryrun.txt";
-      if (!-d $userd) {
-	mkdir($userd) or abort($uid,$assign,"submit dry-run: mkdir " . cwd() . " $userd: $!");
-      }
-      open(my $DRY,'>',$dryf) or abort($uid,$assign,"submit dry-run: open $dryf: $!");
-      print $DRY "<!--lang:$language-->\n<!--grade:0-->\n<!--tries:$tries-->\n<!--at:$now-->\n";
-      close($DRY);
+      unlink(glob "$userd/*");
+      rmdir("$userd");
     }
-  }
-  
-  ### Write log:  
-  if (!$dryrun) {
-    add_to_log($uid,$assign,$grade);
-  }
-  else {
+    
     add_to_log($uid,$assign,"$grade (dry-run)");
   }
-
+  
   ### Update home screen:
   if ($utype eq 'aluno' && !$dryrun) {
     my $scr = $session->param('screen');
@@ -1660,26 +1814,44 @@ sub invoke_moss {
   my $utype = shift;
   my $upassf = shift;
   my $assign = shift;
-  my $reentering = shift;
+  my $lang = shift;
 
-  (!$reentering) and print_html_start();
+  print_html_start();
 
   # Check user type:
   ($utype ne 'prof') and block_user($uid,$upassf,"invoke_moss: $uid não é prof.");
 
+  # Load configs, adjust language:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
   my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
+  $lang = lc($lang);
+  $lang =~ s/c\+\+/cc/;
+  $lang =~ s/python3/python/;
+  $lang =~ s/octave/matlab/;
+
+  # Get a list of sources:
+  $gregex = '';  # $gregex is used by wanted_moss.
+
+  if ($lang eq 'c') { $gregex = qr/(\.c$)|(\.h$)/; }
+  elsif ($lang eq 'cc') { $gregex = qr/(\.cpp$)|(\.h$)/; }
+  elsif ($lang eq 'python') { $gregex = qr/.py$/; }
+  elsif ($lang eq 'java') { $gregex = qr/.java$/; }
+  elsif ($lang eq 'matlab') { $gregex = qr/.m$/; }
+    
   @gsources = ();  # @gsources is modified by wanted_moss.
   find(\&wanted_moss,"./$assign");
-
-  (@gsources < 2) and abort($uid,$assign,"Deve haver pelo menos dois arquivos para comparar.");
+  (@gsources < 2) and abort($uid,$assign,"Deve haver pelo menos dois envios para comparar.");
 
   my $url = '';
+
+  my $runf = "$assign/moss.$lang.run";
+  my $errf = "$assign/moss.$lang.err";
+  my $lockf = "$assign/moss.$lang.lock";
   
-  if (-f "$assign/moss.run") {
-    # Check if last moss run is up and whether there is a newer source:
-    open(my $MOSS,'<',"$assign/moss.run") or abort($uid,$assign,"moss: open $assign/moss.run: $!");
+  if (-f $runf) {
+    # Check whether last moss run is up or there is a newer source:
+    open(my $MOSS,'<',$runf) or abort($uid,$assign,"moss : open $runf : $!");
     my @out = <$MOSS>;
     close($MOSS);
     
@@ -1689,7 +1861,7 @@ sub invoke_moss {
     } while ($k>=0 && $url !~ /^http\:\/\/moss\.stanford\.edu\/results/);
 
     if ($k >= 0 && LWP::Simple::head($url)) {
-      my $age = (stat "$assign/moss.run")[9];
+      my $age = (stat $runf)[9];
       for (my $i=0; $i<@gsources; $i++) {
 	if ($age < (stat $gsources[$i])[9]) {
 	  $url = '';
@@ -1703,35 +1875,34 @@ sub invoke_moss {
   }
 
   if ($url eq '') {
+    # Run Moss:
     my $LOCK;
-    open($LOCK,'>',"$assign/moss.lock") or abort($uid,$assign,"moss: open $assign/moss.lock: $!");
+    open($LOCK,'>',$lockf) or abort($uid,$assign,"moss : open $lockf : $!");
     flock($LOCK,LOCK_EX|LOCK_NB) or abort($uid,$assign,"Comparando $assign, aguarde.");
-
-    my @aux = split(/ +/,$cfg{languages});
-    my $lang = lc($aux[0]);
-    $lang =~ s/c\+\+/cc/;
-    $lang =~ s/python3/python/;
         
     my $cmd = "perl moss-sqtpm $sys_cfg{'moss-id'} -l $lang -m $sys_cfg{'moss-m'} " .
-      "-d @gsources 1>$assign/moss.run 2>$assign/moss.err";
+      "-d @gsources 1>$runf 2>$errf";
 
     system($cmd);
     my $st = ($? >> 8) & 0x00FF;
 
     flock($LOCK,LOCK_UN);
     close($LOCK);
-    unlink("$assign/moss.lock");
+    # $lockf is intentionally left there.
 
-    ($st) and abort($uid,$assign,"moss: system $cmd: $!");
-
-    open(my $MOSS,'<',"$assign/moss.run") or abort($uid,$assign,"moss: open $assign/moss.run: $!");
+    if ($st) {
+      $st = $!;
+      (-s $errf) and ($st = load_file($uid,$assign,$errf) . " : $st");
+      abort($uid,$assign,"moss : $st");
+    }
+    
+    open(my $MOSS,'<',$runf) or abort($uid,$assign,"moss : open $runf : $!");
     my @out = <$MOSS>;
     close($MOSS);
     $url = $out[-1];
 
     if ($url !~ /^http:/) {
-      unlink("$assign/moss.run");
-      invoke_moss($uid,$utype,$upassf,$assign,1);
+      unlink($runf);
       abort($uid,$assign,"A execução do Moss falhou.");
     }
   }
@@ -1744,22 +1915,22 @@ sub invoke_moss {
 
 
 ################################################################################
-# A wanted function to find sources for moss.  It add files to @gsources from
-# an outer scope.
+# A wanted function to find sources for moss.  It add files that match
+# $gregex to @gsources, both from an outer scope.
 
 sub wanted_moss {
   -f && 
   !($File::Find::name =~ /\/backup\//) && 
-  (/\.c$/ || /\.cpp$/ || /\.h$/ || /\.pas$/ || /\.f$/ || /\.F$/ || /\.py$/ || /\.java$/) && 
+  /$gregex/ && 
   (push(@gsources,"$File::Find::name"));
 }
 
 
 
 ################################################################################
-# A wanted function to collect data for the histogram.  Each report
-# file for a user in %gusers is visited and (submission date, grade, user) 
-# are pushed into @ggrades.
+# A wanted function to collect data for the histogram.
+# Each report file for a user in %gusers is visited and (submission
+# date, grade, user) are pushed into @ggrades.
 
 sub wanted_hist {
   
@@ -1770,6 +1941,10 @@ sub wanted_hist {
     (!$1 || (!exists($gusers{$1}) && !exists($gusers{"*$1"}))) and return;
 
     my %rep = load_rep_data($file);
+
+    ($st && $rep{at} lt $st) and return;
+    ($dl && $rep{at} gt $dl) and return;
+    
     push(@ggrades,(split(/ /,$rep{at}))[0]);
     push(@ggrades,$rep{grade});
     push(@ggrades,$1);
@@ -1862,7 +2037,7 @@ sub print_html_file {
 
   ($path) and ($path = "$path/");
 
-  open(my $HTML,'<',"$path$file") or abort('','',"print_html_file: open $path$file: $!");
+  open(my $HTML,'<',"$path$file") or abort('','',"print_html_file : open $path$file : $!");
 
   while (<$HTML>) {
     /<img / && / src=\"([^\"]*)\"/ && do {
@@ -1872,7 +2047,7 @@ sub print_html_file {
 
       ($fig !~ /^\//) and ($fig = "$path$fig");
 
-      open(my $FIG,'<',$fig) or abort('','',"print_html_file: open $fig: $!");
+      open(my $FIG,'<',$fig) or abort('','',"print_html_file : open $fig : $!");
       
       binmode($FIG);
       my $image = do { local $/; <$FIG> };
@@ -1948,7 +2123,7 @@ sub block_user {
   my $mess = shift;
 
   my $PASS;
-  open($PASS,'+<',$upassf) or abort($uid,,"block_user: open $upassf");
+  open($PASS,'+<',$upassf) or abort($uid,,"block_user : open $upassf");
 
   my $lines = '';
   while (<$PASS>) {

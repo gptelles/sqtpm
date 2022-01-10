@@ -1,5 +1,5 @@
-# This file is part of sqtpm 9.
-# Copyright 2003-2021 Guilherme P. Telles.
+# This file is part of sqtpm 10.
+# Copyright 2003-2022 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
 package sqtpm;
@@ -329,8 +329,10 @@ sub load_keys {
 # Load a limited number of characters from a file into a string.
 #
 # file     The name of the file. 
-# is_pre   If true, substitutes < by &lt; and > by &gt;.  May be undef.
+# is_pre   If true, substitutes < by &lt; > by &gt; and & by &amp;.  May be undef.
 # limit    The maximum number of characters to write. If undef or 0, load the whole file.
+#
+# uid and assignment are used only to write to the log in case of failure.
 #
 # If an error occurs while opening the file then it invokes abort().
 
@@ -351,8 +353,11 @@ sub load_file {
   my $c = getc($FILE);
   my $n = 0;
   while (defined $c && $n < $limit) {
-    ($is_pre && $c eq '<') and ($c = '&lt;');
-    ($is_pre && $c eq '>') and ($c = '&gt;');
+    if ($is_pre) {
+      if ($c eq '<') { $c = '&lt;'; }
+      elsif ($c eq '>') { $c = '&gt;'; }
+      elsif ($c eq '&') { $c = '&amp;'; }
+    }
     $buf .= $c;
     $c = getc($FILE);
     $n++;
