@@ -575,7 +575,7 @@ sub show_statement {
     @aux = sort(grep {/\.pass$/ && -l "$assign/$_" && stat("$assign/$_")} readdir($DIR));
     close($DIR);
     
-    print '<p><b>Grupos:</b><br>&nbsp;';
+    print '<p><b>Grupos:&nbsp; </b>';
     for (my $i=0; $i<@aux; $i++) {
       my $group = $aux[$i];
       $group =~ s/\.pass$//;
