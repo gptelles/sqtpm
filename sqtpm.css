@@ -1,5 +1,5 @@
 body,p,h1,table,td,th,ul,ol,textarea,input,iframe
-{font-family: verdana,helvetica,arial,sans-serif; word-wrap: normal;}
+{font-family: verdana,helvetica,arial,sans-serif; word-wrap: normal; line-height: 1.2;}
 
 body {font-size: 16px; margin: 0px; color: #000000; background-color: #e0e0e0;}
 
@@ -17,13 +17,13 @@ table.grid {border-collapse: collapse;
 table.grid tr {}
 
 table.grid th {padding-right: 6px; padding-left: 6px;
-	       padding-top: 1px; padding-bottom: 1px;
+	       padding-top: 3px; padding-bottom: 3px;
 	       color: white; background-color: #808080;
 	       border: 1px solid black;
 	      }
 
 table.grid td {padding-right: 6px; padding-left: 6px;
-	       padding-top: 0px; padding-bottom: 0px;
+	       padding-top: 2px; padding-bottom: 3px;
 	       border: 1px solid black;
 	      }
 
@@ -35,13 +35,13 @@ table.sgrid {border-collapse: collapse; white-space: nowrap;
 table.sgrid tr:hover {background-color: #c0c0c0;}
 
 table.sgrid th {padding-right: 3px; padding-left: 3px;
-		padding-top: 0px; padding-bottom: 0px;
+		padding-top: 2px; padding-bottom: 3px;
 		color: white; background-color: #808080;
 		border: 1px solid black;
 	       }
 
 table.sgrid td {padding-right: 3px; padding-left: 3px;
-		padding-top: 0px; padding-bottom: 0px;
+		padding-top: 1px; padding-bottom: 1px;
 		border: 1px solid black;
 	       }
 

@@ -919,12 +919,12 @@ sub show_grades_table {
 	  $tab .= '<td valign=\'top\'><table><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) . '">' .
-	    '<br>Envios (preto) e envios 100% por dia, incluindo dry-run.';
+	    '<br>Envios e envios 100% (verde) por dia, incluindo dry-run.';
 
 	  $tab .= '</td></tr><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<br><img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%frequniq,\%freq100uniq)) .
-	    '"><br>Usuários que enviaram (preto) e que enviaram com 100% (verde) por dia, incluindo dry-run.</td></tr></table></td>';
+	    '"><br>Usuários que enviaram e que enviaram com 100% (verde) por dia, incluindo dry-run.</td></tr></table></td>';
 	}
       }
       $tab .= '</tr></table>';
@@ -1185,12 +1185,12 @@ sub submit_assignment {
   }
 
   my $mess = '';
-
+  my %names = ();
   my @nf = split(/,/,$cfg{files});
+  my @sf;
   
   if (exists($cfg{filenames})) {
-    my %names = ();
-    my @sf = split(/ +/,$cfg{filenames});
+    @sf = split(/ +/,$cfg{filenames});
     for (my $i=0; $i<@sf; $i++) {
       $sf[$i] =~ s/\{uid\}/$uid/;
       $sf[$i] =~ s/\{assign\}/$assign/;
@@ -1202,17 +1202,17 @@ sub submit_assignment {
 
     (@sf > $nf[0]) and ($nf[0] = scalar @sf);
     (@sf > $nf[1]) and ($nf[1] = scalar @sf);
- 
-    if (@sources < $nf[0] || @sources > $nf[1]) {
-      $mess .= 'Envie ' .
-	($nf[0]==$nf[1] ?
-	 ($nf[0]==1 ? "1 arquivo." : "$nf[1] arquivos.") :
-	 "de $nf[0] a $nf[1] arquivos.") . '<p>';
-    }
+  }
+
+  if (@sources < $nf[0] || @sources > $nf[1]) {
+    $mess .= 'Envie ' .
+      ($nf[0]==$nf[1] ?
+       ($nf[0]==1 ? "1 arquivo." : "$nf[1] arquivos.") :
+       "de $nf[0] a $nf[1] arquivos.") . '<p>';
+  }
    
-    if (keys(%names) > 0) {
-      $mess .= "Envie arquivos com nomes: @sf.<p>";
-    }
+  if (keys(%names) > 0) {
+    $mess .= "Envie arquivos com nomes: @sf.<p>";
   }
 
   if ($mess) {
@@ -1359,7 +1359,7 @@ sub submit_assignment {
   my @test_cases = ();
   
   ### If this is a PDF statement, there is nothing else to do:
-  if ($language =~ /PDF/) {
+  if ($language eq 'PDF') {
     if ($utype eq 'aluno' && exists($cfg{deadline}) && $days > 0) {
       $rep .= "<br><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b>";
       $grade = "recebido +$days";
