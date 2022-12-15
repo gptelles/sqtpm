@@ -181,6 +181,8 @@ sub elapsed_days {
 
   my $date = shift;
 
+  check_date($date) or abort('','',"A data '$date' é inválida.");
+
   $date = timelocal(substr($date,17,2),substr($date,14,2),substr($date,11,2),
                     substr($date,8,2),substr($date,5,2)-1,substr($date,0,4)-1900);
   
@@ -229,6 +231,31 @@ sub br_date {
 
   return substr($date,8,2)."/".substr($date,5,2)."/".substr($date,0,4).substr($date,10);
 }
+
+
+
+################################################################################
+# check_date($date)
+#
+# Check whether a date in format aaaa/mm/dd hh:mm:ss is valid.
+
+sub check_date {
+  
+    my $date = shift;
+
+    ($date !~ /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/) and return 0;
+
+    ($3 > 31 || $4 > 23 || $5 > 59 || $6 > 59) and return 0;
+
+    ($3 == 31 && ($2 == 4 || $2 == 6 || $2 == 9 || $2 == 11)) and return 0;
+    
+    ($2 == 2 and $3 > 29) and return 0;
+    
+    ($2 == 2 and $3 == 29 and !($1 % 4 == 0 && ($1 % 100 != 0 || $1 % 400 == 0))) and return 0;
+
+    return 1;
+}
+
   
 
 

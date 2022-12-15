@@ -1,5 +1,5 @@
 // This file is part of sqtpm 10.
-// Copyright 2003-2022 Guilherme P. Telles.
+// Copyright 2003-2021 Guilherme P. Telles.
 // sqtpm is distributed under the terms of WTFPL v2.
 
 function login() { 

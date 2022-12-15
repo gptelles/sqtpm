@@ -147,6 +147,8 @@ else {
 exit(0);
 
 
+
+################################################################################
 sub offline {
 
   print header();
@@ -160,6 +162,7 @@ sub offline {
 
   print end_html();
 }
+
 
 
 ################################################################################
@@ -214,7 +217,7 @@ sub home {
   my $upassf = $session->param('upassf');
   my $scr = $session->param('screen');
 
-  print_html_start($first_login,'envio',0);
+  print_html_start($first_login,'home','x');
   
   if (!defined($scr)) {
     %sys_cfg = load_keys_values('sqtpm.cfg');
@@ -242,13 +245,24 @@ sub home {
     
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
-      my %cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
-	
       # If the user is a student and the assignment is still closed, skip it:
       if ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	splice(@assign,$i,1);
 	$i--;  
 	next;
+      }
+
+      # Load configs:
+      my (%cfg);
+	
+      if ($utype eq 'aluno') {
+	my $cfgf = "$assign[$i]/config-" . $upassf =~ s/.pass$//r;
+	%cfg = (!-e $cfgf ?
+		(%sys_cfg,load_keys_values("$assign[$i]/config")) :
+		(%sys_cfg,load_keys_values("$assign[$i]/config"),load_keys_values($cfgf)));
+      }
+      else {
+	%cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
       }
 	
       # Assignment name:
@@ -387,7 +401,7 @@ sub show_subm_report {
   my $assign = param('arg1');
   my $suid = param('arg2');
 
-  print_html_start(0,'saida',0);
+  print_html_start(0,'saida','b');
 
   # Check if user is in the assignment and his type:
   passf_in_assign($uid,$upassf,$assign);
@@ -425,113 +439,133 @@ sub show_statement {
   my $upassf = $session->param('upassf');
   my $assign = param('arg1');
 
-  print_html_start();
+  print_html_start(0,'envio','b');
 
   # Check if the user is in the assignment:
   passf_in_assign($uid,$upassf,$assign);
 
+  # Load configs:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
-  my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
+
+  my $cfgf = "$assign/config-" . $upassf =~ s/.pass$//r;
+  my %cfg = (!-e $cfgf ?
+	     (%sys_cfg,load_keys_values("$assign/config")) :
+	     (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
 
   # If the assignment is not open yet and the user is a student, this is strange:
   ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) and
     block_user($uid,$upassf,"show_st : o prazo para enviar $assign não começou");
 
-  print "<b>Trabalho:</b> $assign";
-  print '<table><tr><td style="vertical-align:top">';
-
   # Octave, Fortran and Pascal are limited to a single source file:
-  ($cfg{languages} eq 'Octave' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Pascal') and
-    ($cfg{files} = '1,1');
-   
-  (exists($cfg{startup})) and print "Data de abertura: " . br_date($cfg{startup}) . '<br>';
+  if ($cfg{languages} eq 'Octave' || $cfg{languages} eq 'Fortran' || $cfg{languages} eq 'Pascal') {
+    $cfg{files} = '1,1';
+  }
 
-  my $open = 1;
+  print "<b>Trabalho:</b> $assign";
+
+  my $p = 0;
+  
+  if ($utype ne 'aluno' && exists($cfg{startup})) {
+    print '<p>Data de abertura: ' . br_date($cfg{startup});
+    $p = 1;
+  }
+
+  my $open = 1; # The assignment status.
 
   if (exists($cfg{deadline})) {
+    print $p ? '<br>' : '<p>';
     print "Data limite para envio: ", br_date($cfg{deadline});
 
     my $days = elapsed_days($cfg{deadline}); 
     if ($days*$cfg{penalty} < 100) {
-      print $days < 1 ? ' (aberto)' : " (aberto +$days)", '<br>';
+      print $days < 1 ? ' (aberto)' : " (aberto +$days)";
     }
     else {
       if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	print ' (encerrado)<br>'; 
+	print ' (encerrado)'; 
 	if ($utype eq 'aluno') {
-	  print '<font color="Teal">dry-run: ' . 
-	    'é possível enviar mas sem substituir o último envio no prazo.</font><br>';
+	  print '<br><font color="Teal">dry-run: ' . 
+	    'ainda é possível enviar mas sem substituir o último envio no prazo.</font>';
 	  $cfg{tries} += 10;
 	}
       }
       else {
-	print ' (encerrado)<br>';
+	print ' (encerrado)';
 	($utype eq 'aluno') and ($open = 0);
       }
     }
     
-    ($cfg{penalty} < 100) and print "Penalidade por dia de atraso: $cfg{penalty}\%<br>";
-  }
-  
-  print "Número máximo de envios: $cfg{tries}<br>";
-
-  (-f "$assign/casos-de-teste.tgz") and
-    print 'Casos-de-teste abertos: <a href="javascript:;" ' .
-      "onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a><br>";
-  
-  (-f "$assign/include.tgz") and
-    print 'Arquivos-fonte: <a href="javascript:;" ' .
-      "onclick=\"wrap('dwn','$assign','','include.tgz')\";>include.tgz</a><br>";
-
-  my @aux = split(/,/,$cfg{files});
-  print "Arquivos a enviar: " .
-    ($aux[0] == $aux[1] ? "$aux[0]" : "entre $aux[0] e $aux[1]") . '<br>';
-  
-  if (exists($cfg{filenames})) {
-    @aux = split(/ +/,$cfg{filenames});
-    for (my $i=0; $i<@aux; $i++) {
-      $aux[$i] =~ s/\{uid\}/$uid/;
-      $aux[$i] =~ s/\{assign\}/$assign/;
-    }
-    print "Enviar arquivos com nomes: @aux<br>";
+    ($cfg{penalty} < 100) and print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
+    $p = 1;
   }
 
-  if ($utype eq 'aluno') {
-
-    my $tryed = 0;
-    my $tryed_at = undef;
-    my $tryed_grade;
+  my $tryed = 0;
+  my $tryed_at = undef;
+  my $tryed_grade;
     
-    my $repf = "$assign/$uid/$uid.rep";
-    if (-e $repf) {
-      my %rep = load_rep_data($repf);
-      $tryed = $rep{tries};
-      $tryed_at = $rep{at};
-      $tryed_grade = $rep{grade};
-    }
-    
-    my $dryf = "$assign/$uid/$uid.dryrun.rep";
-    if (-e $dryf) {
-      %rep = load_rep_data($dryf);
-      $tryed = $rep{tries};
-    }
-
-    if (defined $tryed_at) {
-      print "<p><b>Último envio:</b> " .
-	"<a href=\"javascript:;\" " .
+  my $repf = "$assign/$uid/$uid.rep";
+  if (-e $repf) {
+    my %rep = load_rep_data($repf);
+    $tryed = $rep{tries};
+    $tryed_at = $rep{at};
+    $tryed_grade = $rep{grade};
+  }
+  
+  my $dryf = "$assign/$uid/$uid.dryrun.rep";
+  if (-e $dryf) {
+    %rep = load_rep_data($dryf);
+    $tryed = $rep{tries};
+  }
+  
+  print $p ? '<br>' : '<p>';
+  print "Número de envios de $uid: $tryed";
+  
+  if (defined $tryed_at) {
+      print '<br>Último envio:</b> ' .
+	'<a href="javascript:;" ' .
 	"onclick=\"wrap('rep','$assign','$uid');\">$tryed_grade em " . br_date($tryed_at) . '</a>';
-    }
-
-    print "<br>Envios: $tryed";
   }
-  else {
-    print '<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>' .
-      '<td style="vertical-align:top">' .
-      "Linguagens: $cfg{languages}<br>backup: $cfg{backup}" .
-      "<br>grading: $cfg{grading}<br>keep-open: $cfg{'keep-open'}</td>" .
-      '<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>' . 
-      '<td style="vertical-align:top">' .
-      "cputime: $cfg{cputime} s<br>virtmem: $cfg{virtmem} kb<br>stkmem: $cfg{stkmem} kb";
+
+  $p = 0;
+  if ($cfg{languages} !~ / /) {
+    my @nf = split(/,/,$cfg{files});
+
+    my @sf;
+    if (exists($cfg{filenames})) {
+      @sf = split(/ +/,$cfg{filenames});
+      for (my $i=0; $i<@sf; $i++) {
+	$sf[$i] =~ s/\{uid\}/$uid/;
+	$sf[$i] =~ s/\{assign\}/$assign/;
+      }
+      
+      (@sf > $nf[0]) and ($nf[0] = scalar @sf);
+      (@sf > $nf[1]) and ($nf[1] = scalar @sf);
+    }
+    
+    print '<p>Número de arquivos a enviar: ' .
+      ($nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]");
+    
+    (@sf) and print "<br>Nomes dos arquivos a enviar: @sf<br>";
+    $p = 1;
+  }
+  
+  if (-f "$assign/casos-de-teste.tgz") {
+    print $p ? '<br>' : '<p>';
+    print 'Casos-de-teste abertos: <a href="javascript:;" ' .
+      "onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a>";
+    $p = 1;
+  }
+  
+  if (-f "$assign/include.tgz") {
+    print $p ? '<br>' : '<p>';
+    print 'Arquivos auxiliares: <a href="javascript:;" ' .
+      "onclick=\"wrap('dwn','$assign','','include.tgz')\";>include.tgz</a>";
+  }
+  
+  if ($utype ne 'aluno') {
+    print "<p>Linguagens: $cfg{languages}<br>backup: $cfg{backup}" .
+      "<br>grading: $cfg{grading}<br>keep-open: $cfg{'keep-open'}" .
+      "<br>cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb";
   }
   print '</td></tr></table>';
 
@@ -555,18 +589,19 @@ sub show_statement {
 
     print "<input type='hidden' name='submassign' value='$assign'>" .
       '<p><b>Enviar:</b></p>' .
-      '<div class="f95">' .
       '<table cellspacing="0" border="0">' .
-      '<tr> <td>Linguagem:&nbsp;&nbsp;';   
+      '<tr><td>Linguagem: &nbsp;';   
     
     print $cgi->popup_menu('language', \@aux);
     
-    print '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;</td><td>Arquivos:&nbsp;&nbsp;' .
+    print '</td>'.
+      '<td style="padding-left:30px">Arquivos: &nbsp;' .
       '<input type="file" name="source" multiple></td>' .
-      '<td><input type="submit" class="button" name="subm" value="Enviar"' .
+      '<td style="padding-left:30px">'.
+      '<input type="submit" class="button" name="subm" value="Enviar"' .
       ' onclick="javascript:wrap(\'sub\')"></td>' .
       '</table>' .
-      '</div><p>';
+      '<p>';
   }
 
   if (exists($cfg{description})) {
@@ -704,9 +739,11 @@ sub show_grades_table {
     # Get users:
     my @users = load_keys($passf,':');
     my $n = @users;
+
+    my $grp = $passf =~ s/.pass$//r;
     
     if (@users == 0) {
-      $tab = '<p><b>Não há usuários em $passf.</p>';
+      $tab = '<p><b>Não há usuários em $grp.</p>';
     }
     else {
       (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
@@ -727,7 +764,7 @@ sub show_grades_table {
       my $show = 0;
       my $show100 = 0;
 
-      $tab = "<b>Acertos para os $n usuários de $passf em " .
+      $tab = "<b>Acertos para os $n usuários de $grp em " .
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign');\">$assign</a>:</b>";
 	
       for my $user (@users) {
@@ -754,16 +791,15 @@ sub show_grades_table {
 
       # Produce a report with a table with tuples {user,grade} and a
       # histogram.  They are both in an outer table.
-      $tab .= sprintf("<br>&emsp;Enviados: %i (%.0f%%)",$show,($n>0?100*$show/$n:0.0)) .
-	sprintf("<br>&emsp;100%%: %i (%.0f%%)",$show100,($show>0?100*$show100/$show:0.0));
+      $tab .= sprintf("<br><ul><li>Enviados: %i (%.0f%%)",$show,($n>0?100*$show/$n:0.0)) .
+	sprintf("<li>100%%: %i (%.0f%%)",$show100,($show>0?100*$show100/$show:0.0));
 
-      (@langs == 1) and ($tab .= "<br>&emsp;Todos em $langs[0]");
+      (@langs == 1) and ($tab .= "<li>Todos em $langs[0]");
 
-      $tab .= '<p></p><div class="f95">' .
-	'<table border=0><tr><td valign="top">' .
+      $tab .= '</ul><p><table border=0>' .
+	'<tr><td valign="top">' .
 	'<table class="sgrid">' .
-	'<tr><th>usuário</th><th>acertos</th></tr>' .
-	'<tr><td colspan=2></td></tr>';
+	'<tr><th>usuário</th><th>acertos</th></tr>';
 
       my $c = 0;
       my $d = 0;
@@ -780,8 +816,7 @@ sub show_grades_table {
 	if ($break_tables && $d == 28 && $c < @users) {
 	  $tab .= '</table></td>' .
 	    '<td valign="top"><table class="sgrid">' .
-	    '<tr><th>usuário</th><th>acertos</th></tr>' .
-	    '<tr><td colspan=2></td></tr>';
+	    '<tr><th>usuário</th><th>acertos</th></tr>';
 	  $d = 0;
 	}
       }
@@ -809,6 +844,7 @@ sub show_grades_table {
 	  my %uniq = ();
 	  my %uniq100 = ();
 
+	  # The order is date,grade,user:
 	  for (my $i=0; $i<@ggrades; $i+=3) {
   
 	    if (exists($freq{"$ggrades[$i]"})) {
@@ -825,7 +861,7 @@ sub show_grades_table {
 	      $freq100{"$ggrades[$i]"}++;
 	    }
 
-	    if (!exists($uniq{"$ggrades[$i]$ggrades[$i+2]"}) && $ggrades[$i+1] ne '100%') {
+	    if (!exists($uniq{"$ggrades[$i]$ggrades[$i+2]"})) {
 	      $frequniq{"$ggrades[$i]"}++;
 	      $uniq{"$ggrades[$i]$ggrades[$i+2]"} = 1;
 	    }
@@ -880,29 +916,28 @@ sub show_grades_table {
 	  
 	  my $size = keys %freq;
 	  
-	  $tab .= '<td valign=\'top\'><table><tr><td>' .
+	  $tab .= '<td valign=\'top\'><table><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<img src="data:image/png;base64,' .
-	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) .
-					'" style="border:0;padding: 0px 0px 0px 20px">';
+	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) . '">' .
+	    '<br>Envios (preto) e envios 100% por dia, incluindo dry-run.';
 
-	  $tab .= '</td></tr><tr><td><img src="data:image/png;base64,' .
+	  $tab .= '</td></tr><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
+	    '<br><img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%frequniq,\%freq100uniq)) .
-	    '" style="border:0;padding: 0px 0px 0px 20px">' .
-	    '</td></tr></table></td>';
+	    '"><br>Usuários que enviaram (preto) e que enviaram com 100% (verde) por dia, incluindo dry-run.</td></tr></table></td>';
 	}
       }
-      $tab .= '</tr></table></div>';
+      $tab .= '</tr></table>';
     }
 
     if (@langs > 1) {
       # Produce the report with a table with tuples {user,grade} for each language:  
-      $tab .= "<p>&nbsp;</p><b>Acertos para $passf em $assign por linguagem de programação:</b>" .
+      $tab .= "<p>&nbsp;</p><b>Acertos para $grp em $assign por linguagem de programação:</b>" .
 	'<p><table border=0><tr>';
 
       for my $k (@langs) {
 	$tab .= '<td valign="top"><table class="sgrid">' . 
-	  "<tr><th>usuário</th><th>$k</th></tr>" .
-	  '<tr><td colspan=2></td></tr>';
+	  "<tr><th>usuário</th><th>$k</th></tr>";
 
 	my $show = 0;
 	my $show100 = 0;
@@ -1006,8 +1041,7 @@ sub show_all_grades_table {
   # Print a table with tuples {user,grade,grade,...} and summaries:
   print "<b>Acertos para $n usuários em $passf:</b></p>";
 
-  print '<div style="overflow-x:scroll"><div class="f95">' .
-    '<table class="sgrid">' .
+  print '<table class="sgrid">' .
     '<tr><td><b>enviados</b></td>';
   
   for my $amnt (@amnts) {
@@ -1022,16 +1056,12 @@ sub show_all_grades_table {
   }
   print '</tr>';
 
-  print "<tr><td colspan=$n></td></tr>";
-
   print '<tr><th>usuário</th>';
   for my $amnt (@amnts) {
     #print "<th><a href=\"javascript:;\" onclick=\"wrap('stm','$amnt');\">$amnt</a></th>";
     print "<th>$amnt</th>";
   }
   print '</tr>';
-
-  print "<tr><td colspan=$n></td></tr>";
 
   if ($sort_tables) {
     @users = sort(@users);
@@ -1045,8 +1075,7 @@ sub show_all_grades_table {
     print '</tr>';
   }
 
-  print "<tr><td colspan=$n></td></tr>";
-  print '</table></div></div>';
+  print '</table>';
   print_html_end();
 }
 
@@ -1067,7 +1096,7 @@ sub submit_assignment {
 
   my $dryrun = 0;
   
-  print_html_start(0,'saida',1);
+  print_html_start(0,'saida','h');
 
   ### Checks:  
   # Check assign:
@@ -1076,9 +1105,19 @@ sub submit_assignment {
   # Check if the user is in the assignment:
   passf_in_assign($uid,$upassf,$assign);
 
-  # Load system and assignment configs:
+  # Load system, assignment and group configs:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
-  my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
+
+  my (%cfg);
+  if ($utype eq 'aluno') {
+    my $cfgf = "$assign/config-" . $upassf =~ s/.pass$//r;
+    %cfg = (!-e $cfgf ?
+	    (%sys_cfg,load_keys_values("$assign/config")) :
+	    (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
+  }
+  else {
+    %cfg = (%sys_cfg, load_keys_values("$assign/config"));
+  }
 
   my $days = (exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0);
 
@@ -1146,25 +1185,33 @@ sub submit_assignment {
   }
 
   my $mess = '';
-  $cfg{files} =~ /(\d+),(\d+)/;
-  if (@sources < $1 || @sources > $2) {
-    $mess .= 'Envie ' .
-      ($1==$2 ? ($1==1 ? "1 arquivo." : "$1 arquivos.") : "de $1 a $2 arquivos.") . '<p>';
-  }
 
+  my @nf = split(/,/,$cfg{files});
+  
   if (exists($cfg{filenames})) {
     my %names = ();
-    my @aux = split(/ +/,$cfg{filenames});
-    for (my $i=0; $i<@aux; $i++) {
-      $aux[$i] =~ s/\{uid\}/$uid/;
-      $aux[$i] =~ s/\{assign\}/$assign/;
-      $names{$aux[$i]} = 1;
+    my @sf = split(/ +/,$cfg{filenames});
+    for (my $i=0; $i<@sf; $i++) {
+      $sf[$i] =~ s/\{uid\}/$uid/;
+      $sf[$i] =~ s/\{assign\}/$assign/;
+      $names{$sf[$i]} = 1;
     }
     for (my $i=0; $i<@uploads; $i++) {
       delete($names{$uploads[$i]});
     }
+
+    (@sf > $nf[0]) and ($nf[0] = scalar @sf);
+    (@sf > $nf[1]) and ($nf[1] = scalar @sf);
+ 
+    if (@sources < $nf[0] || @sources > $nf[1]) {
+      $mess .= 'Envie ' .
+	($nf[0]==$nf[1] ?
+	 ($nf[0]==1 ? "1 arquivo." : "$nf[1] arquivos.") :
+	 "de $nf[0] a $nf[1] arquivos.") . '<p>';
+    }
+   
     if (keys(%names) > 0) {
-      $mess .= "Envie arquivos com nomes: @aux.<p>";
+      $mess .= "Envie arquivos com nomes: @sf.<p>";
     }
   }
 
@@ -1213,7 +1260,7 @@ sub submit_assignment {
     "<a href=\"javascript:;\" onclick=\"wrap('stm','$assign');\">$assign</a></b>";
 
   if (exists($cfg{deadline})) {
-    $rep .= "<br>Data limite para envio: " . br_date($cfg{deadline});
+    $rep .= "<p>Data limite para envio: " . br_date($cfg{deadline});
     ($days*$cfg{penalty} >= 100) and ($rep .= ' (encerrado)');
     ($cfg{penalty} < 100) and ($rep .= "<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
@@ -1225,7 +1272,7 @@ sub submit_assignment {
     }
   }
   else {
-    $rep .= "<br>$uid: envios sem restrições de linguagem e prazo.";
+    $rep .= "<br>$uid: envios sem restrição de prazo.";
   }
   
   $rep .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
@@ -1312,7 +1359,7 @@ sub submit_assignment {
   my @test_cases = ();
   
   ### If this is a PDF statement, there is nothing else to do:
-  if ($language eq 'PDF') {
+  if ($language =~ /PDF/) {
     if ($utype eq 'aluno' && exists($cfg{deadline}) && $days > 0) {
       $rep .= "<br><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b>";
       $grade = "recebido +$days";
@@ -1373,7 +1420,7 @@ sub submit_assignment {
 	$cmd = "cd $userd; $cfg{tar} -cf elf.tar *.py";
 	system($cmd);
 	my $status = ($? >> 8) & 0x00FF;
-	($status) and abort($uid,undef,"submit : system $cmd (status $status) : $!");
+	($status) and abort($uid,undef,"submit : system $cmd ($status) : $!");
 	$srcname = 'elf.tar';
       }
     }
@@ -1498,7 +1545,7 @@ sub submit_assignment {
 	system($cmd);
 
 	my $status = ($? >> 8) & 0x00FF;
-	($status) and abort($uid,$assign,"submit : system $cmd (status $status) : $!");
+	($status) and abort($uid,$assign,"submit : system $cmd ($status) : $!");
 
 	# Adjust verifier path:
 	(exists $cfg{verifier}) and ($cfg{verifier} =~ s/\@/$assign\//);
@@ -1823,7 +1870,6 @@ sub invoke_moss {
 
   # Load configs, adjust language:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
-  my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
 
   $lang = lc($lang);
   $lang =~ s/c\+\+/cc/;
@@ -1929,12 +1975,12 @@ sub wanted_moss {
 
 ################################################################################
 # A wanted function to collect data for the histogram.
-# Each report file for a user in %gusers is visited and (submission
-# date, grade, user) are pushed into @ggrades.
+# Each report file for a user in %gusers is visited and
+# (date, grade, user) are pushed into @ggrades.
 
 sub wanted_hist {
   
-  /\.rep$/ && do {
+  /\.rep$/ && !/.dryrun.rep$/ && do {
     my $file = $_;
     /^(\w+)\./;
 
@@ -1960,13 +2006,15 @@ sub wanted_hist {
 #
 # first-login: 1 if the session is starting, 0 if it existed already.
 # help: the help html file.
-# back-link: 0 or null is back to previous page, 1 is forced back to sqtpm.cgi.
+# back-link: 'x' is exit, 'h' is forced back to sqtpm.cgi, 'b' or anything else is back.
 
 sub print_html_start {
 
   my $first_login = shift;
   my $help = shift;
   my $back = shift;
+
+  (!defined($back)) and ($back = '');
 
   if ($first_login) {
     print header(-cookie=>$cgi->cookie(CGISESSID => $session->id));
@@ -1975,32 +2023,26 @@ sub print_html_start {
     print header();
   }
 
-  if ($help && $help eq 'saida') {
-    print start_html(-title=>'sqtpm', 
-		     -style=>{-src=>['sqtpm.css','google-code-prettify/prettify.css']},
-		     -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
-  }
-  else {
-    print start_html(-title=>'sqtpm', 
-		     -style=>{-src=>['sqtpm.css']},
-		     -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
-  }
+  print start_html(-title=>'sqtpm', 
+		   -style=>{-src=>['sqtpm.css','google-code-prettify/prettify.css']},
+		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
   
-  print '<div id="wrapper"><div id="sidebar"><h1>sqtpm</h1>';
+  #  print '<div id="wrapper"><div id="sidebar"><h1>sqtpm</h1>';
+  print '<div id="sidebar"><h1>sqtpm</h1>';
   print '<p style="margin-top:-15px"><small>[',substr($session->param('uid'),0,13),']</small></p>';
   ($help) and print "<a href=\"javascript:;\" onclick=\"wrap('hlp','$help')\">ajuda</a><br>";
   
-  if ($help && $help eq 'envio') {
+  if ($back eq "x") {
     print '<a href="javascript:;" onclick="wrap(\'out\');">sair</a>';
   }
-  elsif ($back) {
+  elsif ($back eq "h") {
     print '<a href="sqtpm.cgi">voltar</a>';
   }
-  else {
+  else { # 'b'
     print '<a href="javascript:;" onclick="window.history.go(-1); return false;">voltar</a>';
   }    
   
-  print '</div><div id="content">';
+  print '</div><div class="content">';
   
   # There will always be a form named sqtpm with hidden fields to handle actions through wrap():
   print '<form method="post" action="sqtpm.cgi" enctype="multipart/form-data" name="sqtpm">' .
