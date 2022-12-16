@@ -336,7 +336,7 @@ sub home {
       }
       elsif ($utype eq 'prof') { 
 	# Moss launchers:
-	my @aux = split(/ +/,$cfg{languages});
+	my @aux = split(/ +/,$sys_cfg{languages});
 	(!@aux) && (@aux = split(/ +/,$sys_cfg{languages}));
 	
 	for ($j=@aux-1; $j>=0; $j--) {
@@ -584,9 +584,11 @@ sub show_statement {
     }
   }
 
+  # Submit:
   if ($open) {
-    @aux = split(/ +/,$cfg{languages});
 
+    @aux = $utype eq 'prof' ? split(/ +/,$sys_cfg{languages}) : split(/ +/,$cfg{languages});
+    
     print "<input type='hidden' name='submassign' value='$assign'>" .
       '<p><b>Enviar:</b></p>' .
       '<table cellspacing="0" border="0">' .
@@ -604,6 +606,7 @@ sub show_statement {
       '<p>';
   }
 
+  # Description:
   if (exists($cfg{description})) {
     if ($cfg{description} =~ /^http/) {
       print "<p><hr>Enunciado: <a href='$cfg{description}'>$cfg{description}</a><hr>";
@@ -1146,8 +1149,9 @@ sub submit_assignment {
   (exists($langs{$language})) or
     block_user($uid,$upassf,"submit : não há linguagem $language.");
 
-  (grep(/$language/,split(/\s+/,$cfg{languages}))) or
+  if ($utype ne 'prof' and ! grep(/$language/,split(/\s+/,$cfg{languages}))) {
     block_user($uid,$upassf,"submit : $assign não pode ser enviado em $language.");
+  }
   
   # Check the number of uploading files and their names: 
   my %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
