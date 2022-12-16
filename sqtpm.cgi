@@ -336,7 +336,7 @@ sub home {
       }
       elsif ($utype eq 'prof') { 
 	# Moss launchers:
-	my @aux = split(/ +/,$sys_cfg{languages});
+	my @aux = split(/ +/,$cfg{languages});
 	(!@aux) && (@aux = split(/ +/,$sys_cfg{languages}));
 	
 	for ($j=@aux-1; $j>=0; $j--) {
