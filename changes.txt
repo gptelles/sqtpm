@@ -47,7 +47,7 @@ v6:
 -support to .cor files removed.
 
 v6.1:
--added keep-open directive.
+-the directive keep-open was added.
 -fixed slow diff comparisons introducing a lower-case version of .out files and
  invoking diff -q only.
 
@@ -77,9 +77,13 @@ v9
 -Java added.
 
 v10
--Octave added, which triggered the addition of another argument to sqtpm-etc.
+-added Octave, which triggered the addition of another argument to sqtpm-etc.
 -python3-args option dropped.
--Moss submission link split into a link per language.
+-Moss submission link was split into a link per language.
 -Flags were added to the head of sqtpm.cgi to enable/diasable ordering
  users in grades tables and breaking grades tables in columns.
--offline added.
+-offline was added.
+-added a configuration file for an assignment and group combination
+ that further refines system and assignment configurations.
+-directive hide-grades was added. 
+-directive limits was added.

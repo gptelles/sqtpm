@@ -4,6 +4,10 @@
 ### docker-etc.sh (root:root, 555) em /home/sqtpm.
 ### Depois cria-se um container chamado sqtpm com o volume e sem rede.
 
+### Nessa configuração é preciso gerar executáveis estáticos.
+### Essa configuração está supondo que o Docker está sendo configurado
+### pelo mesmo usuário do Apache.
+
 docker pull alpine:latest
 
 docker create -it --name capivara alpine:latest
@@ -35,5 +39,4 @@ docker create -it --name sqtpm --network='none' --mount type=bind,source=/data/p
 
 docker stop capivara
 
-# Nessa configuração é preciso gerar executáveis estáticos.
 

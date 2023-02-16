@@ -17,6 +17,7 @@ else
   find . -type d -exec chmod 2770 {} \;
   find . -type f -exec chmod 660 {} \;
   chmod 750 *.cgi *.sh
+  chmod -f 750 clean-sessions.pl
   chmod 640 sqtpm.pm sqtpm.cfg sqtpm.js sqtpm.css moss-sqtpm *.html *.png
   chmod g-s google-code-prettify
   chmod 750 google-code-prettify

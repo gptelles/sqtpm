@@ -152,11 +152,12 @@ exit(0);
 sub offline {
 
   print header();
-  print start_html(-title=>'sqtpm', 
-		   -style=>{-src=>['sqtpm.css']},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
-			   meta({-name=>'robots',-content=>'noindex'}),
-			   meta({-name=>'googlebot',-content=>'noindex'})]);
+  print start_html(-title => 'sqtpm', 
+		   -style => {-src=>['sqtpm.css']},
+		   -Cache_Control => 'public',
+		   -head => [Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			    meta({-name=>'robots',-content=>'noindex'}),
+			    meta({-name=>'googlebot',-content=>'noindex'})]);
 
   print '<div class="f85"><h1>sqtpm</h1>O sqtpm está indisponível no momento.<hr></div>';
 
@@ -171,6 +172,7 @@ sub login_form {
   print header();
   print start_html(-title=>'sqtpm', 
 		   -style=>{-src=>['sqtpm.css']},
+		   -Cache_Control => 'public',
 		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
 			   meta({-name=>'robots',-content=>'noindex'}),
 			   meta({-name=>'googlebot',-content=>'noindex'})]);
@@ -230,28 +232,22 @@ sub home {
     close($DIR);
 
     my %groups = (); # a hash for pass files linked by any assignment.
+    my %ast = (); # a hash with the state of each assignment.
 
     # The assignments table in home window:
     my $tab = ''; 
 
     # Assignments table header:
-    $tab = '<b>Trabalhos:</b><p></p><table class="grid"><tr><th>Enunciado</th>';
+    $tab = '<table class="grid"><tr><th>Trabalho</th>';
     ($utype ne 'aluno') and ($tab .= '<th>Grupos</th>');
     $tab .= '<th>Estado</th>';
     ($utype ne 'aluno') and ($tab .= '<th>Abertura</th>');    
     $tab .= '<th>Data limite</th>';
-    ($utype eq 'aluno') and ($tab .= '<th>Último envio</th></tr>');
+    ($utype ne 'prof') and ($tab .= '<th>Último envio</th></tr>');
     ($utype eq 'prof') and ($tab .= '<th>Moss</th></tr>');
     
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
-      # If the user is a student and the assignment is still closed, skip it:
-      if ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
-	splice(@assign,$i,1);
-	$i--;  
-	next;
-      }
-
       # Load configs:
       my (%cfg);
 	
@@ -264,7 +260,14 @@ sub home {
       else {
 	%cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
       }
-	
+
+      # If the user is a student and the assignment is still closed, skip it:
+      if ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
+	splice(@assign,$i,1);
+	$i--;  
+	next;
+      }
+
       # Assignment name:
       $tab .= '<tr align="center"><td>' .
 	"<a href=\"javascript:;\" onclick=\"wrap('stm','$assign[$i]');\">$assign[$i]</a></td>";
@@ -289,24 +292,41 @@ sub home {
       
       # Assignment state:
       $tab .= '<td>';
+      my $state;
       if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
 	$tab .= '<font color="DarkOrange">fechado</font>';
+	$state = 0;
       }
       elsif (exists($cfg{deadline})) {
 	my $days = elapsed_days($cfg{deadline});
-	if ($days*$cfg{penalty} < 100) {
+	if ($days < 1) {
 	  $tab .= '<font color="MediumBlue">aberto</font>';
+	  $state = 1;
+	}
+	elsif ($days*$cfg{penalty} < 100) {
+	  $tab .= "<font color=\"MediumBlue\">aberto (+$days)</font>";
+	  $state = 2;
 	}
 	elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
 	  $tab .= '<font color="Teal">dry-run</font>';
+	  $state = 3;
 	}
 	else {
 	  $tab .= 'encerrado';
+	  $state = 4;
 	}   
       }
       else {
-	$tab .= '<font color="MediumBlue">aberto</font>'
+	$tab .= '<font color="MediumBlue">aberto</font>';
+	$state = 1;
       }
+      
+      if (exists($cfg{'hide-grades'}) && $cfg{'hide-grades'} eq 'on'
+	  && $state >= 1 && $state <= 3) {
+	$state += 4; 
+      }
+
+      $ast{$assign[$i]} = $state;
       $tab .= '</td>';
       
       # Startup:
@@ -319,13 +339,14 @@ sub home {
       # Deadline:
       $tab .= '<td>';
       $tab .= (exists($cfg{deadline}) ?
-	       dow($cfg{deadline}) . " &nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
+	       dow($cfg{deadline}) . "&nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
       
-      if ($utype eq 'aluno') {
+      if ($utype ne 'prof') {
 	# Last submisson grade:
 	my %rep = load_rep_data("$assign[$i]/$uid/$uid.rep");
 	
 	if (exists($rep{grade})) {
+	  ($state >= 5) and ($rep{grade} = 'recebido');
 	  $tab .= '<td class="grid"><a href="javascript:;" ' .
 	    "onclick=\"wrap('rep','$assign[$i]','$uid');\">$rep{grade}</a>";
 	}
@@ -382,6 +403,7 @@ sub home {
     }
 
     $scr .= $tab;
+    $session->param('assign_states',\%ast);
     $session->param('screen',$scr);
   }
 
@@ -413,13 +435,39 @@ sub show_subm_report {
     # * and @ users may see reports of other users:
     $uid = $suid;
   }
-  
+
   my $userd = "$assign/$uid";
   my $reportf = "$userd/$uid.rep";
 
   (!-e $reportf) and 
     block_user($uid,$upassf,"show_report : não existe arquivo $reportf.");
 
+  if ($utype eq 'aluno') {
+    my %ast  = %{ $session->param('assign_states') };
+
+    if ($ast{$assign} >= 5) {
+      open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report : open $reportf : $!");
+      
+      while (<$FILE>) {
+	/^<\!--/ && do {
+	  next;
+	};
+	/^<p><b>Execu/ && do {
+	  last;
+	};
+	/^<p><b>Compila/ && do {
+	  last;
+	};
+	print $_;
+      }
+      close($FILE);
+
+      print '<br><b>Recebido.</b><hr>';
+      print_html_end();
+      return;
+    }
+  }
+  
   open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report : open $reportf : $!");
   while (<$FILE>) {
     print $_;
@@ -452,8 +500,10 @@ sub show_statement {
 	     (%sys_cfg,load_keys_values("$assign/config")) :
 	     (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
 
+  my %ast  = %{ $session->param('assign_states') };
+
   # If the assignment is not open yet and the user is a student, this is strange:
-  ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) and
+  ($utype eq 'aluno' && $ast{$assign} == 0) and
     block_user($uid,$upassf,"show_st : o prazo para enviar $assign não começou");
 
   # Octave, Fortran and Pascal are limited to a single source file:
@@ -464,41 +514,39 @@ sub show_statement {
   print "<b>Trabalho:</b> $assign";
 
   my $p = 0;
-  
+  my $open = 1; # If the assignment accepts submissions or not.
+
   if ($utype ne 'aluno' && exists($cfg{startup})) {
-    print '<p>Data de abertura: ' . br_date($cfg{startup});
+    print '<p>Data de abertura: ', br_date($cfg{startup});
     $p = 1;
   }
 
-  my $open = 1; # The assignment status.
-
   if (exists($cfg{deadline})) {
-    print $p ? '<br>' : '<p>';
-    print "Data limite para envio: ", br_date($cfg{deadline});
-
-    my $days = elapsed_days($cfg{deadline}); 
-    if ($days*$cfg{penalty} < 100) {
-      print $days < 1 ? ' (aberto)' : " (aberto +$days)";
+    print $p ? '<br>' : '<p>', "Data limite para envio: ", br_date($cfg{deadline});
+  
+    if ($ast{$assign} == 1 || $ast{$assign} == 5) {
+      print ' (aberto)';
     }
-    else {
-      if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	print ' (encerrado)'; 
-	if ($utype eq 'aluno') {
-	  print '<br><font color="Teal">dry-run: ' . 
-	    'ainda é possível enviar mas sem substituir o último envio no prazo.</font>';
-	  $cfg{tries} += 10;
-	}
-      }
-      else {
-	print ' (encerrado)';
-	($utype eq 'aluno') and ($open = 0);
-      }
+    elsif ($ast{$assign} == 2 || $ast{$assign} == 6) {
+      my $days = elapsed_days($cfg{deadline}); 
+      print " (aberto +$days)";
     }
-    
+    elsif ($ast{$assign} == 3 || $ast{$assign} == 7) {
+      print '<br><font color="Teal">dry-run: ', 
+	'ainda é possível enviar mas sem substituir o último envio no prazo.</font>';
+      $cfg{tries} += 10;
+    }
+    elsif ($ast{$assign} == 4) {
+      print ' (encerrado)';
+      ($utype eq 'aluno') and ($open = 0);
+    }
+  
     ($cfg{penalty} < 100) and print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
     $p = 1;
   }
 
+  print $p ? '<br>' : '<p>', "Número máximo de envios: ", $cfg{tries};
+  
   my $tryed = 0;
   my $tryed_at = undef;
   my $tryed_grade;
@@ -517,15 +565,16 @@ sub show_statement {
     $tryed = $rep{tries};
   }
   
-  print $p ? '<br>' : '<p>';
-  print "Número de envios de $uid: $tryed";
+  print "<p>Número de envios de $uid: $tryed";
   
   if (defined $tryed_at) {
-      print '<br>Último envio:</b> ' .
-	'<a href="javascript:;" ' .
-	"onclick=\"wrap('rep','$assign','$uid');\">$tryed_grade em " . br_date($tryed_at) . '</a>';
+      print '<br>Último envio:</b> ',
+	'<a href="javascript:;" ', "onclick=\"wrap('rep','$assign','$uid');\">",
+	br_date($tryed_at),
+	($ast{$assign} < 5 && $tryed_grade ne 'recebido') ? " ($tryed_grade)" : '',
+	'</a>';
   }
-
+  
   $p = 0;
   if ($cfg{languages} !~ / /) {
     my @nf = split(/,/,$cfg{files});
@@ -542,30 +591,32 @@ sub show_statement {
       (@sf > $nf[1]) and ($nf[1] = scalar @sf);
     }
     
-    print '<p>Número de arquivos a enviar: ' .
-      ($nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]");
+    print '<p>Número de arquivos a enviar: ',
+      $nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]";
     
     (@sf) and print "<br>Nomes dos arquivos a enviar: @sf<br>";
     $p = 1;
   }
   
   if (-f "$assign/casos-de-teste.tgz") {
-    print $p ? '<br>' : '<p>';
-    print 'Casos-de-teste abertos: <a href="javascript:;" ' .
+    print $p ? '<br>' : '<p>',
+      'Casos-de-teste abertos: <a href="javascript:;" ',
       "onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a>";
     $p = 1;
   }
   
   if (-f "$assign/include.tgz") {
-    print $p ? '<br>' : '<p>';
-    print 'Arquivos auxiliares: <a href="javascript:;" ' .
+    print $p ? '<br>' : '<p>',
+      'Arquivos auxiliares: <a href="javascript:;" ',
       "onclick=\"wrap('dwn','$assign','','include.tgz')\";>include.tgz</a>";
   }
   
   if ($utype ne 'aluno') {
-    print "<p>Linguagens: $cfg{languages}<br>backup: $cfg{backup}" .
-      "<br>grading: $cfg{grading}<br>keep-open: $cfg{'keep-open'}" .
-      "<br>cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb";
+    print "<p>languages: $cfg{languages}<br>backup: $cfg{backup}<br>grading: $cfg{grading}",
+      $cfg{'keep-open'} > 0 ? "<br>keep-open: $cfg{'keep-open'}" : '',
+      exists($cfg{'hide-grades'}) ? "<br>hide-grades: $cfg{'hide-grades'}" : '',
+      "<br>cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb",
+      exists($cfg{'limits'}) ? "<br>limits: $cfg{limits}" : '',
   }
   print '</td></tr></table>';
 
@@ -579,30 +630,29 @@ sub show_statement {
     for (my $i=0; $i<@aux; $i++) {
       my $group = $aux[$i];
       $group =~ s/\.pass$//;
-      print '<a href="javascript:;"' .
+      print '<a href="javascript:;"',
 	"onclick=\"wrap('scr','$group','$assign');\">$group</a>&nbsp; ";
     }
   }
 
   # Submit:
   if ($open) {
-
     @aux = $utype eq 'prof' ? split(/ +/,$sys_cfg{languages}) : split(/ +/,$cfg{languages});
     
-    print "<input type='hidden' name='submassign' value='$assign'>" .
-      '<p><b>Enviar:</b></p>' .
-      '<table cellspacing="0" border="0">' .
+    print "<input type='hidden' name='submassign' value='$assign'>",
+      '<p><b>Enviar:</b></p>',
+      '<table cellspacing="0" border="0">',
       '<tr><td>Linguagem: &nbsp;';   
     
     print $cgi->popup_menu('language', \@aux);
     
-    print '</td>'.
-      '<td style="padding-left:30px">Arquivos: &nbsp;' .
-      '<input type="file" name="source" multiple></td>' .
-      '<td style="padding-left:30px">'.
-      '<input type="submit" class="button" name="subm" value="Enviar"' .
-      ' onclick="javascript:wrap(\'sub\')"></td>' .
-      '</table>' .
+    print '</td>',
+      '<td style="padding-left:30px">Arquivos: &nbsp;',
+      '<input type="file" name="source" multiple></td>',
+      '<td style="padding-left:30px">',
+      '<input type="submit" class="button" name="subm" value="Enviar"',
+      ' onclick="javascript:wrap(\'sub\')"></td>',
+      '</table>',
       '<p>';
   }
 
@@ -756,11 +806,7 @@ sub show_grades_table {
       %grades = ();
       %langs = ();
 
-      my $onlystd = 1;
       for (my $i=0; $i<@users; $i++) {
-	if ($onlystd && $users[$i] =~ /^[\*@]/) {
-	  $onlystd = 0;
-	}
 	$users[$i] =~ s/^[\*@]?//;
       }    
 
@@ -777,7 +823,8 @@ sub show_grades_table {
 	  my $g = $rep{grade};
 	  $g =~ s/\%//;
 	  
-	  $grades{$user} = "<a href=\"sqtpm.cgi?action=rep&arg1=$assign&arg2=$user\">$g</a>";
+	  $grades{$user} =
+	    "<a href=\"sqtpm.cgi?action=rep&arg1=$assign&arg2=$user\">$rep{grade}</a>";
 
 	  (!exists($langs{$rep{lang}})) and ($langs{$rep{lang}} = ());
 	  push(@{$langs{$rep{lang}}},$user);
@@ -804,16 +851,14 @@ sub show_grades_table {
 	'<table class="sgrid">' .
 	'<tr><th>usuário</th><th>acertos</th></tr>';
 
-      my $c = 0;
-      my $d = 0;
-      
       if ($sort_tables) {
 	@users = sort(@users);
       }
       
+      my $c = 0;
+      my $d = 0;
       for my $user (@users) {
-	$tab .= '<tr align=center>' . 
-	  "<td><b>$user</b></td><td>$grades{$user}</td></tr>";
+	$tab .= "<tr align=center><td><b>$user</b></td><td>$grades{$user}</td></tr>";
 	$c++;
 	$d++;
 	if ($break_tables && $d == 28 && $c < @users) {
@@ -832,9 +877,6 @@ sub show_grades_table {
 	@ggrades = ();                    # @ggrades is modified by wanted_hist.    
 	$st = 0;                          # $st and $dl are used by wanted_hist.
 	$dl = 0;
-	
-	($onlystd && exists($cfg{startup})) and ($st = $cfg{startup});
-	($onlystd && exists($cfg{deadline})) and ($dl = $cfg{deadline});
 	
 	find(\&wanted_hist,"$assign");
 	
@@ -1044,8 +1086,7 @@ sub show_all_grades_table {
   # Print a table with tuples {user,grade,grade,...} and summaries:
   print "<b>Acertos para $n usuários em $passf:</b></p>";
 
-  print '<table class="sgrid">' .
-    '<tr><td><b>enviados</b></td>';
+  print '<table class="sgrid"><tr><td><b>enviados</b></td>';
   
   for my $amnt (@amnts) {
     printf("<td>%i (%.0f%%)</td>",$show{$amnt},($n>0 ? 100*$show{$amnt}/$n : 0.0));
@@ -1220,7 +1261,7 @@ sub submit_assignment {
   }
 
   if ($mess) {
-    print $mess . 'Veja detalhes sobre os nomes de arquivos válidos nesta ' .
+    print $mess, 'Veja detalhes sobre os nomes de arquivos válidos nesta ',
 	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.";
     abort($uid,$assign,"Número ou nomes de arquivos incorretos",1);
   }
@@ -1259,29 +1300,30 @@ sub submit_assignment {
   my $now = format_epoch(time);
 
   ### Report header:
-  my $rep = "<b>Usuário: $uid</b>";
-  $rep .= '<br><b>Trabalho: ' .
+  my $rep = '';
+  my $reph = "<b>Usuário: $uid</b>";
+  $reph .= '<br><b>Trabalho: ' .
     "<a href=\"javascript:;\" onclick=\"wrap('stm','$assign');\">$assign</a></b>";
 
   if (exists($cfg{deadline})) {
-    $rep .= "<p>Data limite para envio: " . br_date($cfg{deadline});
-    ($days*$cfg{penalty} >= 100) and ($rep .= ' (encerrado)');
-    ($cfg{penalty} < 100) and ($rep .= "<br>Penalidade por dia de atraso: $cfg{penalty}%");
+    $reph .= "<p>Data limite para envio: " . br_date($cfg{deadline});
+    ($days*$cfg{penalty} >= 100) and ($reph .= ' (encerrado)');
+    ($cfg{penalty} < 100) and ($reph .= "<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
 
   if ($utype eq 'aluno') {
     if ($dryrun) {
-      $rep .= '<br><font color="Teal">O prazo terminou. ' .
+      $reph .= '<br><font color="Teal">O prazo terminou. ' .
 	'Este envio não substitui o último envio no prazo.</font>';
     }
   }
   else {
-    $rep .= "<br>$uid: envios sem restrição de prazo.";
+    $reph .= "<br>$uid: envios sem restrição de prazo.";
   }
   
-  $rep .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
-  $rep .= "<br>Linguagem: $language";
-  $rep .= (@uploads == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
+  $reph .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
+  $reph .= "<br>Linguagem: $language";
+  $reph .= (@uploads == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
 
   ### Get uploaded source files and pdfs:
   @sources = ();
@@ -1319,44 +1361,44 @@ sub submit_assignment {
 
   ### Insert links for sources and documents:
   for (my $i=0; $i<@sources; $i++) {
-    $rep .= '<a href="javascript:;" ' . 
+    $reph .= '<a href="javascript:;" ' . 
       "onclick=\"toggleDiv('$sources[$i]');\">$sources[$i]</a>&nbsp;";
   }
   for (my $i=0; $i<@pdfs; $i++) {
-    $rep .= '<a href="javascript:;" ' . 
+    $reph .= '<a href="javascript:;" ' . 
       "onclick=\"wrap('dwn','$assign','$uid','$pdfs[$i]');\">$pdfs[$i]</a>&nbsp; ";
   }
 
-  $rep .= '<script type="text/javascript" ' .
+  $reph .= '<script type="text/javascript" ' .
     'src="google-code-prettify/run_prettify.js?61"></script>';
   
   ### Insert source files:
   for (my $i=0; $i<@sources; $i++) {
-    $rep .= "<div id='$sources[$i]' style='display:none' class='src'>" . 
+    $reph .= "<div id='$sources[$i]' style='display:none' class='src'>" . 
       "<b>$sources[$i]</b>&nbsp;&nbsp;" .
       "<a href=\"javascript:;\" " .
       "onclick=\"wrap('dwn','$assign','$uid','$sources[$i]')\">download</a>";
-    #$rep .= "<style> .prettyprint ol.linenums > li { list-style-type: decimal; } </style>";
+    #$reph .= "<style> .prettyprint ol.linenums > li { list-style-type: decimal; } </style>";
     
     my $source = "$userd/$sources[$i]";
     if ($sources[$i] =~ /\.c$/ || $sources[$i] =~ /\.h$/) {
-      #$rep .= "<pre class='prettyprint linenums lang-c' id='C_lang'>";
-      $rep .= "<pre class='prettyprint lang-c' id='C_lang'>";
+      #$reph .= "<pre class='prettyprint linenums lang-c' id='C_lang'>";
+      $reph .= "<pre class='prettyprint lang-c' id='C_lang'>";
       if (-x "$cfg{indent}") {
 	system("$cfg{indent} -kr $source -o $source.indent 2>/dev/null");
-	$rep .= load_file($uid,$assign,"$source.indent",1);
+	$reph .= load_file($uid,$assign,"$source.indent",1);
       }
       else {
-	$rep .= load_file($uid,$assign,$source,1);
+	$reph .= load_file($uid,$assign,$source,1);
       }
     }
     else {
-      #$rep .= "<pre class='prettyprint linenums'>";
-      $rep .= "<pre class='prettyprint'>";
-      $rep .= load_file($uid,$assign,$source,1);
+      #$reph .= "<pre class='prettyprint linenums'>";
+      $reph .= "<pre class='prettyprint'>";
+      $reph .= load_file($uid,$assign,$source,1);
     }
     
-    $rep .= "</pre></div>"; 
+    $reph .= "</pre></div>"; 
   }
 
   my $grade = 0;
@@ -1365,11 +1407,11 @@ sub submit_assignment {
   ### If this is a PDF statement, there is nothing else to do:
   if ($language eq 'PDF') {
     if ($utype eq 'aluno' && exists($cfg{deadline}) && $days > 0) {
-      $rep .= "<br><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b>";
+      $rep .= "<p><b>Recebido com atraso de $days " . ($days>1 ? "dias" : "dia") . ".</b>";
       $grade = "recebido +$days";
     }
     else {
-      $rep .= "<br><b>Recebido.</b>";
+      $rep .= "<p><b>Recebido.</b>";
       $grade = 'recebido';
     }
   }
@@ -1386,7 +1428,7 @@ sub submit_assignment {
 
     # Compile:
     if ($language ne 'Octave' && $language ne 'Python3') {
-      $rep .= "<p><b>Compilação:</b>&nbsp;";
+      $rep .= "\n<p><b>Compilação:</b>&nbsp;";
     }
     
     # Copy files from directory include if one exists:
@@ -1407,11 +1449,11 @@ sub submit_assignment {
       (exists($cfg{'gcc-args'})) or ($cfg{'gcc-args'} = '');
       
       open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile : $!");
-      print $MAKE "CC = $cfg{gcc}\n" .
-	'CFLAGS = ' . $cfg{'gcc-args'} . "\n" .
-	'SRC = $(wildcard *.c)' . "\n" .
-	'elf: $(SRC:%.c=%.o)' . "\n" .
-	"\t" . '$(CC) $(CFLAGS) -o $@ $^' . "\n";
+      print $MAKE "CC = $cfg{gcc}\n",
+	"CFLAGS = $cfg{'gcc-args'}\n",
+	'SRC = $(wildcard *.c)', "\n",
+	'elf: $(SRC:%.c=%.o)', "\n",
+	"\t", '$(CC) $(CFLAGS) -o $@ $^', "\n";
       close($MAKE);    
       $compcmd = "$cfg{'make'}";
     }
@@ -1443,8 +1485,8 @@ sub submit_assignment {
       close($MF);
 
       open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile: $!");
-      print $MAKE "elf: \n" . 
-	"\t$cfg{'jdk'}/javac $cfg{'javac-args'} *.java; " .
+      print $MAKE "elf: \n", 
+	"\t$cfg{'jdk'}/javac $cfg{'javac-args'} *.java; ",
 	"$cfg{'jdk'}/jar cvfm elf.jar manifest.txt *.class\n";
       close($MAKE);
       $compcmd = "$cfg{'make'}";
@@ -1456,11 +1498,11 @@ sub submit_assignment {
       (exists($cfg{'g++-args'})) or ($cfg{'g++-args'} = '');
 
       open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile: $!");
-      print $MAKE "CC = $cfg{'g++'}\n" .
-	'CFLAGS = ' . $cfg{'g++-args'} . "\n" .
-	'SRC = $(wildcard *.cpp)' . "\n" .
-	'elf: $(SRC:%.cpp=%.o)' . "\n" .
-	"\t" . '$(CC) $(CFLAGS) -o $@ $^' . "\n";
+      print $MAKE "CC = $cfg{'g++'}\n",
+	"CFLAGS = $cfg{'g++-args'}\n",
+	'SRC = $(wildcard *.cpp)', "\n",
+	'elf: $(SRC:%.cpp=%.o)', "\n",
+	"\t", '$(CC) $(CFLAGS) -o $@ $^', "\n";
       close($MAKE);
       $compcmd = "$cfg{'make'}";
     }
@@ -1541,13 +1583,34 @@ sub submit_assignment {
       # Dispatch test cases execution:
       else {
 
-	$rep .= '<p><b>Execução dos casos-de-teste:</b><p>';
+	$rep .= "\n<p><b>Execução dos casos-de-teste:</b><p>";
 
-	my $cmd = "./sqtpm-etc.sh $uid $assign $language $srcname $cfg{cputime} " .
-	  "$cfg{virtmem} $cfg{stkmem} >/dev/null 2>&1";
+	# Per test case limits:
+	my $lim = '';
+	if (exists($cfg{limits})) {
+	  my @c = split(/ +/,$cfg{limits});
+	  for ($i=0; $i<@c; $i++) {
+	    my %h = ();
+	    $h{t} = $cfg{cputime};
+	    $h{v} = $cfg{virtmem};
+	    $h{s} = $cfg{stkmem};
+
+	    my @l = split(/:/,$c[$i]);
+	    
+	    for ($j=1; $j<@l; $j++) {
+	      my ($k,$v) = split(/=/,$l[$j]);
+	      $h{$k} = $v;
+	    }
+
+	    $lim .= "$l[0] $h{t} $h{v} $h{s} ";
+	  }
+	}
+	
+	my $cmd = "./sqtpm-etc.sh $uid $assign $language $srcname " .
+	  " $cfg{cputime} $cfg{virtmem} $cfg{stkmem} $lim >/dev/null 2>&1";
 
 	system($cmd);
-
+	
 	my $status = ($? >> 8) & 0x00FF;
 	($status) and abort($uid,$assign,"submit : system $cmd ($status) : $!");
 
@@ -1757,15 +1820,12 @@ sub submit_assignment {
   }
   
   ### Add data to ease parsing the report later:
-  $rep = "<!--lang:$language-->\n<!--grade:$grade-->\n" .
-         "<!--tries:${try}-->\n<!--at:$now-->\n" . $rep;
+  my $reptag = "<!--lang:$language-->\n<!--grade:$grade-->\n" .
+               "<!--tries:${try}-->\n<!--at:$now-->\n";
   
   if ($rep !~ /<hr>$/) {
     $rep .= '<hr>';
   }
-
-  print $rep;
-  print end_html();
 
   ### Remove grades report to force future update, if any:
   my $tabfile = "$assign/$upassf";
@@ -1782,14 +1842,14 @@ sub submit_assignment {
   ### Save report:
   my $repf = "$userd/$uid.rep";
   open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit : open $repf : $!");
-  print $REPORT $rep;
+  print $REPORT "$reptag $reph $rep";
   close($REPORT);
 
   ### Backup:
   $prevd = "$assign/$uid";
   
   if ($utype ne 'aluno' || ($utype eq 'aluno' && !$dryrun)) {
-    # Backup or remove previous submission:
+    # Backup or remove the previous submission:
     if (-d $prevd) {
       if ($cfg{backup} eq 'on') {
 	$tryed_at =~ s/[:\/]//g;
@@ -1803,25 +1863,23 @@ sub submit_assignment {
       }
     }
 
-    # Rename current submission dir:
+    # Rename the current submission:
     rename($userd,$prevd) or abort($uid,$assign,"submit $tryed : mv curr $userd $prevd : $!");
 
     add_to_log($uid,$assign,$grade);
   }  
   else {
-    # Backup or remove the current submission.
-
-    # Previous submission will prevail, save dryrun.rep in it:
+    # Dry-run. The previous submission will prevail, save dryrun.rep in it:
     if (!-d $prevd) {
       mkdir($prevd) or abort($uid,$assign,"submit dry-run : mkdir " . cwd() . " $prevd : $!");
     }
     
     my $repf = "$prevd/$uid.dryrun.rep";
     open(my $REPORT,'>',$repf) or abort($uid,$assign,"submit : open $repf : $!");
-    print $REPORT $rep;
+    print $REPORT "$reptag $reph $rep";
     close($REPORT);
     
-    # Move current submission to backup or remove it: 
+    # Move the current submission to backup or remove it: 
     if ($cfg{backup} eq 'on') {
       $now =~ s/[:\/]//g;
       $now =~ s/ /-/g;
@@ -1835,9 +1893,29 @@ sub submit_assignment {
     
     add_to_log($uid,$assign,"$grade (dry-run)");
   }
+
+  ### Output to browser:
+  print $reph;
+
+  if ($utype eq 'aluno') {
+    my %ast  = %{ $session->param('assign_states') };
+    if ($ast{$assign} >= 5) {
+      print '<br><b>Recebido.</b><hr>';
+      $grade = 'recebido';
+    }
+    else {
+      print $rep;
+    }
+  }
+  else {
+    print $rep;
+  }
+  
+  print end_html();
+
   
   ### Update home screen:
-  if ($utype eq 'aluno' && !$dryrun) {
+  if ($utype ne 'prof' && !$dryrun) {
     my $scr = $session->param('screen');
     
     my $i = index($scr,">$assign<");
@@ -2049,11 +2127,11 @@ sub print_html_start {
   print '</div><div class="content">';
   
   # There will always be a form named sqtpm with hidden fields to handle actions through wrap():
-  print '<form method="post" action="sqtpm.cgi" enctype="multipart/form-data" name="sqtpm">' .
-    '<script type="text/javascript" src="sqtpm.js"></script>' .
-    '<input type="hidden" name="action">' .
-    '<input type="hidden" name="arg1">' . 
-    '<input type="hidden" name="arg2">' .
+  print '<form method="post" action="sqtpm.cgi" enctype="multipart/form-data" name="sqtpm">',
+    '<script type="text/javascript" src="sqtpm.js"></script>',
+    '<input type="hidden" name="action">',
+    '<input type="hidden" name="arg1">', 
+    '<input type="hidden" name="arg2">',
     '<input type="hidden" name="arg3">';
 }
 
@@ -2187,3 +2265,4 @@ sub block_user {
   $session->delete();
   exit(0);
 }
+
