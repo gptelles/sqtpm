@@ -1,10 +1,15 @@
-
 ### Cria-se uma imagem capivara a partir da Alpine com bash,
 ### python3, openjdk e octave, com um usuário sqtpm e com o arquivo
 ### docker-etc.sh (root:root, 555) em /home/sqtpm.
-### Depois cria-se um container chamado sqtpm com o volume e sem rede.
 
-### Nessa configuração é preciso gerar executáveis estáticos.
+### Depois cria-se um container chamado sqtpm que mapeia um diretório
+### para execução dos casos-de-teste (os mesmos diretórios vão em
+### docker-etc e sqtpm-etc-doker) e sem rede.
+
+### Nessa configuração é preciso gerar executáveis estáticos, p.ex.
+# gcc-args = -static -Wall -O3
+# g++-args = -static -static-libstdc++ -static-libgcc -Wall -O3
+
 ### Essa configuração está supondo que o Docker está sendo configurado
 ### pelo mesmo usuário do Apache.
 
