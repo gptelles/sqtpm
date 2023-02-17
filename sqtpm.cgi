@@ -1666,7 +1666,7 @@ sub submit_assignment {
 	  }
 	  else {
 	    if (exists($cfg{verifier})) {
-	      my $cmd = "$cfg{verifier} $case_in $exec_out >/dev/null 2>&1";
+	      my $cmd = "$cfg{verifier} $case_in $exec_out $case_out >/dev/null 2>&1";
 	      system($cmd);
 	      $status = ($? >> 8) & 0x00FF;
 
