@@ -17,13 +17,13 @@ table.grid {border-collapse: collapse;
 table.grid tr {}
 
 table.grid th {padding-right: 6px; padding-left: 6px;
-	       padding-top: 3px; padding-bottom: 3px;
+	       padding-top: 3px; padding-bottom: 1px;
 	       color: white; background-color: #808080;
 	       border: 1px solid black;
 	      }
 
 table.grid td {padding-right: 6px; padding-left: 6px;
-	       padding-top: 2px; padding-bottom: 3px;
+	       padding-top: 3px; padding-bottom: 1px;
 	       border: 1px solid black;
 	      }
 
