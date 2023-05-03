@@ -248,21 +248,85 @@ sub home {
     
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
-      # Load configs:
-      my (%cfg);
-	
-      if ($utype eq 'aluno') {
-	my $cfgf = "$assign[$i]/config-" . $upassf =~ s/.pass$//r;
-	%cfg = (!-e $cfgf ?
-		(%sys_cfg,load_keys_values("$assign[$i]/config")) :
-		(%sys_cfg,load_keys_values("$assign[$i]/config"),load_keys_values($cfgf)));
+
+      # Load configs and determine assignment state:
+      my %cfg = ();
+      my $state = 0;
+      my $state_tag = '';
+      
+      my %cfgw = load_keys_values("$assign[$i]/config",'=',1);
+      if (!%cfgw) {
+	%cfg = %sys_cfg;
+	$state = 1;
       }
       else {
-	%cfg = (%sys_cfg, load_keys_values("$assign[$i]/config"));
+	%cfg = (%sys_cfg,%cfgw);
+      }
+      
+      if ($utype eq 'aluno') {
+	my $cfgf = "$assign[$i]/config-" . $upassf =~ s/.pass$//r;
+	if (-e $cfgf) {
+	  my %cfgg = load_keys_values($cfgf,'=',1);
+	  if (!%cfgg) {
+	    $state = 1;
+	  }
+	  else {
+	    %cfg = (%cfg,%cfgg);
+	  }
+	}
       }
 
-      # If the user is a student and the assignment is still closed, skip it:
-      if ($utype eq 'aluno' && exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
+      if (!$state && exists($cfg{startup})) {
+	my $days = elapsed_days($cfg{startup});
+	if (!defined($days)) {
+	  $state = 1; # config error
+	}
+	elsif ($days < 0) {
+	  $state = 2; # closed
+	  $state_tag = '<font color="DarkOrange">fechado</font>';
+	}
+      }
+      
+      if (!$state) {
+	if (exists($cfg{deadline})) {
+	  my $days = elapsed_days($cfg{deadline});
+	  if (!defined($days)) {
+	    $state = 1; # config error
+	  }
+	  elsif ($days < 1) {
+	    $state = 3; # open
+	    $state_tag = '<font color="MediumBlue">aberto</font>';
+	  }
+	  elsif ($days*$cfg{penalty} < 100) {
+	    $state = 4; # delayed
+	    $state_tag = "<font color=\"MediumBlue\">aberto (+$days)</font>";	    
+	  }
+	  elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
+	    $state = 5; # dry-run;
+	    $state_tag = '<font color="Teal">dry-run</font>';
+	  }
+	  else {
+	    $state = 6; # finished
+	    $state_tag = 'encerrado';
+	  }   
+	}
+	else {
+	  $state = 3; # open
+	  $state_tag = '<font color="MediumBlue">aberto</font>';
+	}
+      }
+      
+      ($state == 1) and ($state_tag = $state_tag = '<font color="DarkRed">config</font>');
+
+      if (exists($cfg{'hide-grades'}) && $cfg{'hide-grades'} eq 'on'
+	  && $state >=3 && $state <=5) {
+	$state += 10; 
+      }
+
+      $ast{$assign[$i]} = $state;
+
+      # If the user is a student and the assignment is still closed or buggy, skip it:
+      if ($utype eq 'aluno' && $state <= 2) {
 	splice(@assign,$i,1);
 	$i--;  
 	next;
@@ -291,62 +355,42 @@ sub home {
       }
       
       # Assignment state:
-      $tab .= '<td>';
-      my $state;
-      if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
-	$tab .= '<font color="DarkOrange">fechado</font>';
-	$state = 0;
-      }
-      elsif (exists($cfg{deadline})) {
-	my $days = elapsed_days($cfg{deadline});
-	if ($days < 1) {
-	  $tab .= '<font color="MediumBlue">aberto</font>';
-	  $state = 1;
-	}
-	elsif ($days*$cfg{penalty} < 100) {
-	  $tab .= "<font color=\"MediumBlue\">aberto (+$days)</font>";
-	  $state = 2;
-	}
-	elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	  $tab .= '<font color="Teal">dry-run</font>';
-	  $state = 3;
-	}
-	else {
-	  $tab .= 'encerrado';
-	  $state = 4;
-	}   
-      }
-      else {
-	$tab .= '<font color="MediumBlue">aberto</font>';
-	$state = 1;
-      }
-      
-      if (exists($cfg{'hide-grades'}) && $cfg{'hide-grades'} eq 'on'
-	  && $state >= 1 && $state <= 3) {
-	$state += 4; 
-      }
+      $tab .= "<td>$state_tag</td>";
 
-      $ast{$assign[$i]} = $state;
-      $tab .= '</td>';
-      
       # Startup:
       if ($utype ne 'aluno') {
-	$tab .= '<td>';
-	$tab .= (exists($cfg{startup}) ?
-		 dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup}) : 'não há') . '</td>';
+	if (exists($cfg{startup})) {
+	  if ($state == 1) {
+	    $tab .= "<td>$cfg{startup}</td>";
+	  }
+	  else {
+	    $tab .= '<td>' . dow($cfg{startup}) . " &nbsp;" . br_date($cfg{startup});
+	  }
+	}
+	else {
+	  $tab .= '<td>não há</td>';
+	}
       }
       
       # Deadline:
-      $tab .= '<td>';
-      $tab .= (exists($cfg{deadline}) ?
-	       dow($cfg{deadline}) . "&nbsp;" . br_date($cfg{deadline}) : 'não há')  . '</td>';
+      if (exists($cfg{deadline})) {
+	if ($state == 1) {
+	  $tab .= "<td>$cfg{deadline}</td>";
+	}
+	else {
+	  $tab .= '<td>' . dow($cfg{deadline}) . "&nbsp;" . br_date($cfg{deadline});
+	}
+      }
+      else {
+	$tab .= '<td>não há</td>';
+      }
       
       if ($utype ne 'prof') {
 	# Last submisson grade:
 	my %rep = load_rep_data("$assign[$i]/$uid/$uid.rep");
 	
 	if (exists($rep{grade})) {
-	  ($state >= 5) and ($rep{grade} = 'recebido');
+	  ($state >= 10) and ($rep{grade} = 'recebido');
 	  $tab .= '<td class="grid"><a href="javascript:;" ' .
 	    "onclick=\"wrap('rep','$assign[$i]','$uid');\">$rep{grade}</a>";
 	}
@@ -445,7 +489,7 @@ sub show_subm_report {
   if ($utype eq 'aluno') {
     my %ast  = %{ $session->param('assign_states') };
 
-    if ($ast{$assign} >= 5) {
+    if ($ast{$assign} >= 10) {
       open(my $FILE,'<',$reportf) or abort($uid,$assign,"show_report : open $reportf : $!");
       
       while (<$FILE>) {
@@ -503,7 +547,7 @@ sub show_statement {
   my %ast  = %{ $session->param('assign_states') };
 
   # If the assignment is not open yet and the user is a student, this is strange:
-  ($utype eq 'aluno' && $ast{$assign} == 0) and
+  ($utype eq 'aluno' && $ast{$assign} == 2) and
     block_user($uid,$upassf,"show_st : o prazo para enviar $assign não começou");
 
   # Octave, Fortran and Pascal are limited to a single source file:
@@ -524,19 +568,24 @@ sub show_statement {
   if (exists($cfg{deadline})) {
     print $p ? '<br>' : '<p>', "Data limite para envio: ", br_date($cfg{deadline});
   
-    if ($ast{$assign} == 1 || $ast{$assign} == 5) {
+    if ($ast{$assign} == 3 || $ast{$assign} == 13) {
       print ' (aberto)';
     }
-    elsif ($ast{$assign} == 2 || $ast{$assign} == 6) {
+    elsif ($ast{$assign} == 4 || $ast{$assign} == 14) {
       my $days = elapsed_days($cfg{deadline}); 
       print " (aberto +$days)";
     }
-    elsif ($ast{$assign} == 3 || $ast{$assign} == 7) {
+    elsif ($ast{$assign} == 5 || $ast{$assign} == 15) {
+      my $d = $cfg{deadline};
+      $d = timelocal(substr($d,17,2),substr($d,14,2),substr($d,11,2),
+		     substr($d,8,2),substr($d,5,2)-1,substr($d,0,4)-1900);
+      $d = br_date(format_epoch($cfg{'keep-open'}*86400+$d));
+
       print '<br><font color="Teal">dry-run: ', 
-	'ainda é possível enviar mas sem substituir o último envio no prazo.</font>';
+	"é possível enviar até $d mas sem substituir o último envio no prazo.</font>";
       $cfg{tries} += 10;
     }
-    elsif ($ast{$assign} == 4) {
+    elsif ($ast{$assign} == 6) {
       print ' (encerrado)';
       ($utype eq 'aluno') and ($open = 0);
     }
@@ -571,7 +620,7 @@ sub show_statement {
       print '<br>Último envio:</b> ',
 	'<a href="javascript:;" ', "onclick=\"wrap('rep','$assign','$uid');\">",
 	br_date($tryed_at),
-	($ast{$assign} < 5 && $tryed_grade ne 'recebido') ? " ($tryed_grade)" : '',
+	($ast{$assign} < 10 && $tryed_grade ne 'recebido') ? " ($tryed_grade)" : '',
 	'</a>';
   }
   
@@ -611,9 +660,14 @@ sub show_statement {
       "onclick=\"wrap('dwn','$assign','','include.tgz')\";>include.tgz</a>";
   }
   
-  if ($utype ne 'aluno') {
+  if ($utype eq 'prof') {
+    my $d = $cfg{deadline};
+    $d = timelocal(substr($d,17,2),substr($d,14,2),substr($d,11,2),
+		   substr($d,8,2),substr($d,5,2)-1,substr($d,0,4)-1900);
+    $d = br_date(format_epoch($cfg{'keep-open'}*86400+$d));
+
     print "<p>languages: $cfg{languages}<br>backup: $cfg{backup}<br>grading: $cfg{grading}",
-      $cfg{'keep-open'} > 0 ? "<br>keep-open: $cfg{'keep-open'}" : '',
+      $cfg{'keep-open'} > 0 ? "<br>keep-open: $cfg{'keep-open'} ($d)" : '',
       exists($cfg{'hide-grades'}) ? "<br>hide-grades: $cfg{'hide-grades'}" : '',
       "<br>cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb",
       exists($cfg{'limits'}) ? "<br>limits: $cfg{limits}" : '',
@@ -964,12 +1018,15 @@ sub show_grades_table {
 	  $tab .= '<td valign=\'top\'><table><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) . '">' .
-	    '<br>Envios e envios 100% (verde) por dia, incluindo dry-run.';
+	    '<p>Envios e envios 100% (verde) por dia' .
+	    ($cfg{'keep-open'} > 0 ? ', incluindo dry-run.' : '.');
 
 	  $tab .= '</td></tr><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<br><img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%frequniq,\%freq100uniq)) .
-	    '"><br>Usuários que enviaram e que enviaram com 100% (verde) por dia, incluindo dry-run.</td></tr></table></td>';
+	    '"><p>Usuários que enviaram e que enviaram com 100% (verde) por dia' .
+	    ($cfg{'keep-open'} > 0 ? ', incluindo dry-run.' : '.') .
+	    '</td></tr></table></td>';
 	}
       }
       $tab .= '</tr></table>';
@@ -1451,9 +1508,9 @@ sub submit_assignment {
       open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile : $!");
       print $MAKE "CC = $cfg{gcc}\n",
 	"CFLAGS = $cfg{'gcc-args'}\n",
-	'SRC = $(wildcard *.c)', "\n",
-	'elf: $(SRC:%.c=%.o)', "\n",
-	"\t", '$(CC) $(CFLAGS) -o $@ $^', "\n";
+	"SRC = \$(wildcard *.c)\n",
+	"elf: \$(SRC:%.c=%.o)\n",
+	"\t\$(CC) \$(CFLAGS) -o \$@ \$^ $cfg{'gcc-ld-args'}\n";
       close($MAKE);    
       $compcmd = "$cfg{'make'}";
     }
@@ -1500,9 +1557,9 @@ sub submit_assignment {
       open(my $MAKE,'>',"$userd/Makefile") or abort($uid,$assign,"submit : write Makefile: $!");
       print $MAKE "CC = $cfg{'g++'}\n",
 	"CFLAGS = $cfg{'g++-args'}\n",
-	'SRC = $(wildcard *.cpp)', "\n",
-	'elf: $(SRC:%.cpp=%.o)', "\n",
-	"\t", '$(CC) $(CFLAGS) -o $@ $^', "\n";
+	"SRC = \$(wildcard *.cpp)\n",
+	"elf: \$(SRC:%.cpp=%.o)\n",
+	"\t\$(CC) \$(CFLAGS) -o \$@ \$^ $cfg{'g++-ld-args'}\n";
       close($MAKE);
       $compcmd = "$cfg{'make'}";
     }
@@ -1899,7 +1956,7 @@ sub submit_assignment {
 
   if ($utype eq 'aluno') {
     my %ast  = %{ $session->param('assign_states') };
-    if ($ast{$assign} >= 5) {
+    if ($ast{$assign} >= 10) {
       print '<br><b>Recebido.</b><hr>';
       $grade = 'recebido';
     }

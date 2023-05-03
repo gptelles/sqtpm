@@ -87,3 +87,4 @@ v10
  that further refines system and assignment configurations.
 -directive hide-grades was added. 
 -directive limits was added.
+-added gcc-ld-args and g++-ld-args for handling -static better.

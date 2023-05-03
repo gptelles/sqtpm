@@ -169,19 +169,22 @@ sub format_epoch {
 
 
 ################################################################################
-# int elapsed_days($date)
+# int elapsed_days($date, $dont_abort)
 #
-# Return the integral number of days elapsed from date.
+# Return the integral number of days elapsed from date.  Return undef if date
+# is malformed.
 #
 # Return > 0 if date is past, < 0 if date is future or 0 if date
 # matches current time.  Any fraction of a day counts -1 or +1.
 # Expected date format is aaaa/mm/dd hh:mm:ss
+#
+# If dont_abort true then return undef if date is malformed.
 
 sub elapsed_days {
 
   my $date = shift;
 
-  check_date($date) or abort('','',"A data '$date' é inválida.");
+  (!check_date($date)) and return undef;
 
   $date = timelocal(substr($date,17,2),substr($date,14,2),substr($date,11,2),
                     substr($date,8,2),substr($date,5,2)-1,substr($date,0,4)-1900);
@@ -245,12 +248,10 @@ sub check_date {
 
     ($date !~ /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/) and return 0;
 
-    ($3 > 31 || $4 > 23 || $5 > 59 || $6 > 59) and return 0;
-
+    ($2 < 1 || $2 > 12 || $3 < 1 || $3 > 31) and return 0;
+    ($4 < 0 || $4 > 23 || $5 < 0 || $5 > 59 || $6 < 0 || $6 > 59) and return 0;
     ($3 == 31 && ($2 == 4 || $2 == 6 || $2 == 9 || $2 == 11)) and return 0;
-    
     ($2 == 2 and $3 > 29) and return 0;
-    
     ($2 == 2 and $3 == 29 and !($1 % 4 == 0 && ($1 % 100 != 0 || $1 % 400 == 0))) and return 0;
 
     return 1;
@@ -260,7 +261,7 @@ sub check_date {
 
 
 ################################################################################
-# hash load_keys_values($file, $separator)
+# hash load_keys_values($file, $separator, $dont_abort)
 #
 # Read a file with lines in format ^\s*key\s*=\s*value\s* and return a
 # hash with pairs key->value.
@@ -272,19 +273,29 @@ sub check_date {
 # Empty keys and empty values are allowed.  Multiply defined keys
 # retain the last value in file order.
 #
-# If an error occurs while opening the file then it invokes abort().
+# If an error occurs at file opening it invokes abort() or returns an
+# empty hash, depending on whether dont_abort is true.
 
 sub load_keys_values {
 
   my $file = shift;
   my $sep = shift;
+  my $dont_abort = shift;
 
   (!$sep) and ($sep = '=');
 
-  open(my $FILE,'<',$file) or abort('','',"load_keys_values: open $file: $!");
-
   my %hash = ();
 
+  $st = open(my $FILE,'<',$file);
+  if (!$st) {
+    if ($dont_abort) {
+      return %hash;
+    }
+    else {
+      abort('','',"load_keys_values: open $file: $!");
+    }
+  }
+  
   while (<$FILE>) {
     chomp;
     (/^\s*$/) and next;
@@ -300,7 +311,6 @@ sub load_keys_values {
 
   close($FILE);
 
-  $! = 0;
   return %hash;
 }
 
@@ -393,7 +403,6 @@ sub load_file {
   ($n == $limit) and ($buf .= "\n...\n");
   close($FILE);
 
-  $! = 0;
   return $buf;
 }
 
@@ -566,8 +575,8 @@ sub histogram {
   my $im = new GD::Image($png_width,$png_height);
 
   my $black = $im->colorAllocate(0,0,0);
-  my $darkgreen = $im->colorAllocate(0,150,0);
-  my $blue = $im->colorAllocate(0,0,220);
+  my $darkgreen = $im->colorAllocate(48,140,40);
+  my $blue = $im->colorAllocate(20,20,200);
   my $gray = $im->colorAllocate(225,225,225);
   my $white = $im->colorAllocate(255,255,255);
   my $red = $im->colorAllocate(180,0,0);
