@@ -16,7 +16,7 @@ use Fcntl ':flock';
 use File::Basename;
 use File::Find;
 use File::Copy;
-use open ":encoding(Latin1)";
+use open ":encoding(UTF-8)";
 use MIME::Base64 qw(encode_base64);
 use Time::Local;
 
@@ -43,7 +43,6 @@ my $sprefix = getcwd();
 $sprefix =~ s/^\///;
 $sprefix =~ s/\//-/g;
 $sprefix = "sqtpm-$sprefix";
-
 
 my $sessiond = '/tmp';
 $CGI::Session::Driver::file::FileName = $sprefix . '-%s';  
@@ -86,7 +85,7 @@ if (!defined($sid)) {
       home(1);
     }
     else {
-      # Sleep for a while, so trying to break a password will take longer:
+      # Sleep for a while, so trying a password will take longer:
       sleep(3);
       abort_login($uid,'Dados incorretos.');
     }
@@ -249,10 +248,9 @@ sub home {
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
 
-      # Load configs and determine assignment state:
+      # Load configs:
       my %cfg = ();
       my $state = 0;
-      my $state_tag = '';
       
       my %cfgw = load_keys_values("$assign[$i]/config",'=',1);
       if (!%cfgw) {
@@ -276,56 +274,11 @@ sub home {
 	}
       }
 
-      if (!$state && exists($cfg{startup})) {
-	my $days = elapsed_days($cfg{startup});
-	if (!defined($days)) {
-	  $state = 1; # config error
-	}
-	elsif ($days < 0) {
-	  $state = 2; # closed
-	  $state_tag = '<font color="DarkOrange">fechado</font>';
-	}
-      }
-      
-      if (!$state) {
-	if (exists($cfg{deadline})) {
-	  my $days = elapsed_days($cfg{deadline});
-	  if (!defined($days)) {
-	    $state = 1; # config error
-	  }
-	  elsif ($days < 1) {
-	    $state = 3; # open
-	    $state_tag = '<font color="MediumBlue">aberto</font>';
-	  }
-	  elsif ($days*$cfg{penalty} < 100) {
-	    $state = 4; # delayed
-	    $state_tag = "<font color=\"MediumBlue\">aberto (+$days)</font>";	    
-	  }
-	  elsif ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $cfg{languages} !~ /PDF/) {
-	    $state = 5; # dry-run;
-	    $state_tag = '<font color="Teal">dry-run</font>';
-	  }
-	  else {
-	    $state = 6; # finished
-	    $state_tag = 'encerrado';
-	  }   
-	}
-	else {
-	  $state = 3; # open
-	  $state_tag = '<font color="MediumBlue">aberto</font>';
-	}
-      }
-      
-      ($state == 1) and ($state_tag = $state_tag = '<font color="DarkRed">config</font>');
-
-      if (exists($cfg{'hide-grades'}) && $cfg{'hide-grades'} eq 'on'
-	  && $state >=3 && $state <=5) {
-	$state += 10; 
-      }
-
+      # State:
+      $state = assignment_state(\%cfg);
       $ast{$assign[$i]} = $state;
 
-      # If the user is a student and the assignment is still closed or buggy, skip it:
+      # If the user is a student and the assignment is still closed or has an error, skip it:
       if ($utype eq 'aluno' && $state <= 2) {
 	splice(@assign,$i,1);
 	$i--;  
@@ -355,8 +308,26 @@ sub home {
       }
       
       # Assignment state:
-      $tab .= "<td>$state_tag</td>";
-
+      if ($state == 1) {
+	$tab .= '<td><font color="DarkRed">config</font></td>'
+      }
+      elsif ($state == 2) {
+	$tab .= '<td><font color="DarkOrange">fechado</font></td>';
+      }
+      elsif ($state == 3) {
+	$tab .= '<td><font color="MediumBlue">aberto</font></td>';
+      }
+      elsif ($state == 4) {
+	my $days = elapsed_days($cfg{deadline});
+	$tab .= "<td><font color=\"MediumBlue\">aberto (+$days)</font></td>";
+      }
+      elsif ($state == 5) {
+	$tab .= '<td><font color="Teal">dry-run</font></td>';
+      }
+      elsif ($state == 6) {
+	$tab .= '<td>encerrado</td>';
+      }
+      
       # Startup:
       if ($utype ne 'aluno') {
 	if (exists($cfg{startup})) {
@@ -546,6 +517,12 @@ sub show_statement {
 
   my %ast  = %{ $session->param('assign_states') };
 
+  $state = assignment_state(\%cfg);
+  if ($ast{$assign} != $state) {
+    $ast{$assign} = $state;
+    $session->param('screen',undef);
+  }
+  
   # If the assignment is not open yet and the user is a student, this is strange:
   ($utype eq 'aluno' && $ast{$assign} == 2) and
     block_user($uid,$upassf,"show_st : o prazo para enviar $assign não começou");
@@ -558,9 +535,9 @@ sub show_statement {
   print "<b>Trabalho:</b> $assign";
 
   my $p = 0;
-  my $open = 1; # If the assignment accepts submissions or not.
+  my $open = 1; # Whether the assignment accepts submissions or not.
 
-  if ($utype ne 'aluno' && exists($cfg{startup})) {
+  if (exists($cfg{startup})) {
     print '<p>Data de abertura: ', br_date($cfg{startup});
     $p = 1;
   }
@@ -576,13 +553,9 @@ sub show_statement {
       print " (aberto +$days)";
     }
     elsif ($ast{$assign} == 5 || $ast{$assign} == 15) {
-      my $d = $cfg{deadline};
-      $d = timelocal(substr($d,17,2),substr($d,14,2),substr($d,11,2),
-		     substr($d,8,2),substr($d,5,2)-1,substr($d,0,4)-1900);
-      $d = br_date(format_epoch($cfg{'keep-open'}*86400+$d));
-
-      print '<br><font color="Teal">dry-run: ', 
-	"é possível enviar até $d mas sem substituir o último envio no prazo.</font>";
+      print '<br><font color="Teal">dry-run: é possível enviar até ',
+	br_date_plus($cfg{deadline},$cfg{'keep-open'}),
+	' mas sem substituir o último envio no prazo.</font>';
       $cfg{tries} += 10;
     }
     elsif ($ast{$assign} == 6) {
@@ -661,18 +634,43 @@ sub show_statement {
   }
   
   if ($utype eq 'prof') {
-    my $d = $cfg{deadline};
-    $d = timelocal(substr($d,17,2),substr($d,14,2),substr($d,11,2),
-		   substr($d,8,2),substr($d,5,2)-1,substr($d,0,4)-1900);
-    $d = br_date(format_epoch($cfg{'keep-open'}*86400+$d));
+    opendir(my $DIR,$assign) or abort($uid,$assign,"home : opendir $assign : $!");
+    my @aux = sort(grep {-f "$assign/$_" && /^config/ && !/~$/} readdir($DIR));
+    close($DIR);
+    
+    print '<p><b>Diretivas:&nbsp; </b> <a href="javascript:;" ',
+      "onclick=\"toggleDiv('configs');\">todas</a>&nbsp;&nbsp;";
 
-    print "<p>languages: $cfg{languages}<br>backup: $cfg{backup}<br>grading: $cfg{grading}",
-      $cfg{'keep-open'} > 0 ? "<br>keep-open: $cfg{'keep-open'} ($d)" : '',
-      exists($cfg{'hide-grades'}) ? "<br>hide-grades: $cfg{'hide-grades'}" : '',
-      "<br>cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb",
-      exists($cfg{'limits'}) ? "<br>limits: $cfg{limits}" : '',
+    for (my $i=0; $i<@aux; $i++) {
+      print '<a href="javascript:;" ',
+	"onclick=\"toggleDiv('$aux[$i]');\">$aux[$i]</a>&nbsp;&nbsp;";
+    }
+
+    my $d = br_date_plus($cfg{deadline},$cfg{'keep-open'});
+    
+    print "<div id='configs' style='display:none' class='src'><b>diretivas correntes</b>";
+    print "<pre class='prettyprint'>";
+    print "languages: $cfg{languages}\n",
+      "backup: $cfg{backup}\n",
+      "grading: $cfg{grading}\n",
+      $cfg{'keep-open'} > 0 ? "keep-open: $cfg{'keep-open'} ($d)\n" : '',
+      exists($cfg{'hide-grades'}) ? "hide-grades: $cfg{'hide-grades'}\n" : '',
+      "cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb\n",
+      exists($cfg{'limits'}) ? "limits: $cfg{limits}\n" : '';
+    
+    print "\n<b>todas:</b>\n";
+    for $k (sort(keys(%cfg))) {
+      print "$k: $cfg{$k}\n";
+    }
+    print "</pre></div>";
+
+    for (my $i=0; $i<@aux; $i++) {
+      print "<div id='$aux[$i]' style='display:none' class='src'><b>$aux[$i]</b>";
+      print "<pre class='prettyprint'>";
+      print load_file($uid,$assign,"$assign/$aux[$i]",0);
+      print "</pre></div>";
+    }    
   }
-  print '</td></tr></table>';
 
   # Groups:
   if ($utype ne 'aluno') {
@@ -728,6 +726,7 @@ sub show_statement {
     print '<p><hr>';
   }
 
+  ($utype eq 'aluno') && add_to_log($uid,$assign,'');
   print_html_end();
 }
 
@@ -895,12 +894,23 @@ sub show_grades_table {
 
       # Produce a report with a table with tuples {user,grade} and a
       # histogram.  They are both in an outer table.
-      $tab .= sprintf("<br><ul><li>Enviados: %i (%.0f%%)",$show,($n>0?100*$show/$n:0.0)) .
+
+      $tab .= '<br><table border=0><tr><td><ul>' .
+	sprintf("<li>Enviados: %i (%.0f%%)",$show,($n>0?100*$show/$n:0.0)) .
 	sprintf("<li>100%%: %i (%.0f%%)",$show100,($show>0?100*$show100/$show:0.0));
-
       (@langs == 1) and ($tab .= "<li>Todos em $langs[0]");
+      $tab .= '</ul></td><td><ul>';
+      
+      if (exists($cfg{deadline})) {
+	$tab .= "<li>deadline: " . br_date($cfg{deadline});
+      }
+      if ($cfg{'keep-open'} > 0) {
+	my $d = br_date_plus($cfg{deadline},$cfg{'keep-open'});
+	$tab .= "<li>keep-open: $cfg{'keep-open'} ($d)";
+      }
+      $tab .= '</ul></td></tr></table>';
 
-      $tab .= '</ul><p><table border=0>' .
+      $tab .= '<p><table border=0>' .
 	'<tr><td valign="top">' .
 	'<table class="sgrid">' .
 	'<tr><th>usuário</th><th>acertos</th></tr>';
@@ -1017,15 +1027,13 @@ sub show_grades_table {
 	  
 	  $tab .= '<td valign=\'top\'><table><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<img src="data:image/png;base64,' .
-	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%freq,\%freq100)) . '">' .
-	    '<p>Envios e envios 100% (verde) por dia' .
-	    ($cfg{'keep-open'} > 0 ? ', incluindo dry-run.' : '.');
+	    encode_base64(histogram($size<25 ? 500 : $size*20,360,\%freq,\%freq100)) . '">' .
+	    '<p>Envios e envios 100% (verde) por dia.';
 
 	  $tab .= '</td></tr><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<br><img src="data:image/png;base64,' .
-	    encode_base64(histogram($size<30 ? 500 : $size*25,360,\%frequniq,\%freq100uniq)) .
-	    '"><p>Usuários que enviaram e que enviaram com 100% (verde) por dia' .
-	    ($cfg{'keep-open'} > 0 ? ', incluindo dry-run.' : '.') .
+	    encode_base64(histogram($size<25 ? 500 : $size*20,360,\%frequniq,\%freq100uniq)) .
+	    '"><p>Usuários que enviaram e que enviaram com 100% (verde) por dia.' .
 	    '</td></tr></table></td>';
 	}
       }
@@ -1200,7 +1208,7 @@ sub submit_assignment {
   print_html_start(0,'saida','h');
 
   ### Checks:  
-  # Check assign:
+  # Check assignment:
   (!$assign) and abort($uid,'',"Selecione um trabalho.");
 
   # Check if the user is in the assignment:
@@ -1225,19 +1233,27 @@ sub submit_assignment {
   # Check language:
   ($language) or abort($uid,$assign,'Selecione uma linguagem.');
 
-  # Check whether the assignment is open:
-  if ($utype eq 'aluno') {    
-    if (exists($cfg{deadline}) && $days*$cfg{penalty} >= 100) {
-      if ($days-ceil(100/$cfg{penalty})+1 <= $cfg{'keep-open'} && $language !~ /PDF/) { 
-	$dryrun = 1;
-      }
-      else {
-	abort($uid,$assign,"O prazo para enviar $assign terminou.");
-      }
-      
-      if (exists($cfg{startup}) && elapsed_days($cfg{startup}) < 0) {
-	block_user($uid,$upassf,"submit : o prazo para enviar $assign não começou.");
-      }
+  # Check assignment state:
+  my %ast  = %{ $session->param('assign_states') };
+
+  my $state = assignment_state(\%cfg);
+  if ($ast{$assign} != $state) {
+    $ast{$assign} = $state;
+    $session->param('screen',undef);
+  }
+  
+  if ($utype eq 'aluno') {
+    if ($state == 5 || $state == 15) {
+      $dryrun = 1;
+    }
+    elsif ($state == 6) {
+      abort($uid,$assign,"O prazo para enviar $assign terminou.");
+    }
+    elsif ($state == 1) {
+      block_user($uid,$upassf,"submit : $assign tem erros de configuração.");
+    }
+    elsif ($state == 2) {
+      block_user($uid,$upassf,"submit : o prazo para enviar $assign não começou.");
     }
   }
 
@@ -1393,9 +1409,10 @@ sub submit_assignment {
     open(my $SOURCE,'>',"$userd/$uploads[$i]") or 
       abort($uid,$assign,"submit : open $userd/$uploads[$i] : $!");
 
+    binmode $SOURCE;
     my $fh = $fh[$i];
+
     if ($uploads[$i] =~ /\.pdf$/) {
-      binmode $SOURCE;
       while (<$fh>){
 	print $SOURCE $_;
       }
@@ -1843,9 +1860,10 @@ sub submit_assignment {
 	    }
 	  }
 	}
-	$grade = sprintf("%.0f%%",$grade);
       }
     }
+
+    $grade = sprintf("%.0f%%",$grade);
 
     ### Clean-up:
     (-e $elff) and unlink($elff);  
@@ -1877,8 +1895,7 @@ sub submit_assignment {
   }
   
   ### Add data to ease parsing the report later:
-  my $reptag = "<!--lang:$language-->\n<!--grade:$grade-->\n" .
-               "<!--tries:${try}-->\n<!--at:$now-->\n";
+  my $reptag = "<!--lang:$language-->\n<!--grade:$grade-->\n<!--tries:$try-->\n<!--at:$now-->\n";
   
   if ($rep !~ /<hr>$/) {
     $rep .= '<hr>';
@@ -1923,7 +1940,7 @@ sub submit_assignment {
     # Rename the current submission:
     rename($userd,$prevd) or abort($uid,$assign,"submit $tryed : mv curr $userd $prevd : $!");
 
-    add_to_log($uid,$assign,$grade);
+    add_to_log($uid,$assign,"$try $grade");
   }  
   else {
     # Dry-run. The previous submission will prevail, save dryrun.rep in it:
@@ -1940,22 +1957,21 @@ sub submit_assignment {
     if ($cfg{backup} eq 'on') {
       $now =~ s/[:\/]//g;
       $now =~ s/ /-/g;
-      rename("$userd","$backupd/$uid.${try}.$now.dry") or
-	abort($uid,$assign,"submit : mv backup $userd $backupd/$uid.${try}.$now.dry : $!");
+      rename("$userd","$backupd/$uid.$try.$now.dry") or
+	abort($uid,$assign,"submit : mv backup $userd $backupd/$uid.$try.$now.dry : $!");
     }
     else {
       unlink(glob "$userd/*");
       rmdir("$userd");
     }
     
-    add_to_log($uid,$assign,"$grade (dry-run)");
+    add_to_log($uid,$assign,"$try $grade dry-run");
   }
 
   ### Output to browser:
   print $reph;
 
   if ($utype eq 'aluno') {
-    my %ast  = %{ $session->param('assign_states') };
     if ($ast{$assign} >= 10) {
       print '<br><b>Recebido.</b><hr>';
       $grade = 'recebido';
@@ -1969,25 +1985,26 @@ sub submit_assignment {
   }
   
   print end_html();
-
   
   ### Update home screen:
   if ($utype ne 'prof' && !$dryrun) {
     my $scr = $session->param('screen');
-    
-    my $i = index($scr,">$assign<");
-    $i += index(substr($scr,$i),'<td>') + 3;
-    $i += index(substr($scr,$i),'<td>') + 3;
-    $i += index(substr($scr,$i),'<td ');
 
-    my $j = index(substr($scr,$i),'<tr ');
-    ($j == -1) and ($j = index(substr($scr,$i),'</table>'));
-    $j += $i;
-    
-    $session->param('screen', substr($scr,0,$i) .
-		    "<td class=\"grid\"><a href=\"javascript:;\"" .
-		    " onclick=\"wrap('rep','$assign','$uid');\">$grade</a></td>" .
-		    substr($scr,$j));
+    if (defined $scr) {
+      my $i = index($scr,">$assign<");
+      $i += index(substr($scr,$i),'<td>') + 3;
+      $i += index(substr($scr,$i),'<td>') + 3;
+      $i += index(substr($scr,$i),'<td ');
+      
+      my $j = index(substr($scr,$i),'<tr ');
+      ($j == -1) and ($j = index(substr($scr,$i),'</table>'));
+      $j += $i;
+      
+      $session->param('screen', substr($scr,0,$i) .
+		      "<td class=\"grid\"><a href=\"javascript:;\"" .
+		      " onclick=\"wrap('rep','$assign','$uid');\">$grade</a></td>" .
+		      substr($scr,$j));
+    }
   }
 }
 
@@ -2162,11 +2179,12 @@ sub print_html_start {
     print header();
   }
 
-  print start_html(-title=>'sqtpm', 
-		   -style=>{-src=>['sqtpm.css','google-code-prettify/prettify.css']},
-		   -head=>[Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
+  print start_html(-title => 'sqtpm', 
+		   -style => {-src=>['sqtpm.css','google-code-prettify/prettify.css']},
+		   -meta => {charset=>'UTF-8'},
+		   -head => [Link({-rel=>'icon',-type=>'image/png',-href=>'icon.png'})]);
   
-  #  print '<div id="wrapper"><div id="sidebar"><h1>sqtpm</h1>';
+  # print '<div id="wrapper"><div id="sidebar"><h1>sqtpm</h1>';
   print '<div id="sidebar"><h1>sqtpm</h1>';
   print '<p style="margin-top:-15px"><small>[',substr($session->param('uid'),0,13),']</small></p>';
   ($help) and print "<a href=\"javascript:;\" onclick=\"wrap('hlp','$help')\">ajuda</a><br>";
@@ -2229,7 +2247,6 @@ sub print_html_file {
       ($fig !~ /^\//) and ($fig = "$path$fig");
 
       open(my $FIG,'<',$fig) or abort('','',"print_html_file : open $fig : $!");
-      
       binmode($FIG);
       my $image = do { local $/; <$FIG> };
       close($FIG);
@@ -2323,3 +2340,61 @@ sub block_user {
   exit(0);
 }
 
+
+
+################################################################################
+# assignment_state(\%config)
+#
+# Return the state of an assignment.
+#
+# undefined, error, closed -> open -> delayed -> dry-run -> finished
+#     0        1      2        3         4          5          6
+
+sub assignment_state {
+
+  my $cfg = shift;
+  my $state = 0;
+  
+  if (exists($cfg->{startup})) {
+    my $days = elapsed_days($cfg->{startup});
+    if (!defined($days)) {
+      $state = 1; # config error
+    }
+    elsif ($days < 0) {
+      $state = 2; # closed
+    }
+  }
+  
+  if ($state == 0) {
+    if (exists($cfg->{deadline})) {
+      my $days = elapsed_days($cfg->{deadline});
+      
+      if (!defined($days)) {
+	$state = 1; # config error
+      }
+      elsif ($days <= 0) {
+	$state = 3; # open
+      }
+      elsif ($days*$cfg->{penalty} < 100) {
+	$state = 4; # delayed
+      }
+      elsif ($days-ceil(100/$cfg->{penalty})+1 <= $cfg->{'keep-open'} &&
+	     $cfg->{languages} !~ /PDF/) {
+	$state = 5; # dry-run;
+      }
+      else {
+	$state = 6; # finished
+      }   
+    }
+    else {
+      $state = 3; # open
+    }
+  }
+  
+  if (exists($cfg->{'hide-grades'}) && $cfg->{'hide-grades'} eq 'on' &&
+      $state >= 3 && $state <= 5) {
+    $state += 10; 
+  }
+
+  return $state;
+}

@@ -16,6 +16,7 @@ require Exporter;
              elapsed_days
              dow
              br_date
+             br_date_plus
 
              load_keys_values
              load_keys
@@ -33,7 +34,7 @@ require Exporter;
 
 use Fcntl ':flock';
 use Time::Local;
-use open ":encoding(Latin1)";
+use open ":encoding(UTF-8)";
 use Encode;
 use Digest::SHA qw(sha512_base64);
 use POSIX qw(ceil floor);
@@ -134,7 +135,7 @@ sub add_to_log {
 
   !$uid and ($uid = '');
   !$assign and ($assign = '');
-  !$mess and ($mess = '');
+  !defined($mess) and ($mess = '');
 
   my $LOG;
   if (!open($LOG,'>>','sqtpm.log')) {
@@ -144,7 +145,7 @@ sub add_to_log {
   flock($LOG,LOCK_EX);
   seek($LOG,0,2);
 
-  printf $LOG "%s %s port %s %s %s %s\n",format_epoch(time),$ENV{REMOTE_ADDR},$ENV{REMOTE_PORT},
+  printf $LOG "%s %s:%s %s %s %s\n",format_epoch(time),$ENV{REMOTE_ADDR},$ENV{REMOTE_PORT},
 	      $uid,$assign,encode("ASCII",$mess);
 
   flock($LOG,LOCK_UN);
@@ -169,27 +170,35 @@ sub format_epoch {
 
 
 ################################################################################
-# int elapsed_days($date, $dont_abort)
+# int elapsed_days($date, $another_date)
 #
-# Return the integral number of days elapsed from date.  Return undef if date
-# is malformed.
+# Return the integral number of days elapsed from date to the current
+# time or to another date (if defined).
+#
+# Return undef if date (or another_date) is malformed.
 #
 # Return > 0 if date is past, < 0 if date is future or 0 if date
-# matches current time.  Any fraction of a day counts -1 or +1.
-# Expected date format is aaaa/mm/dd hh:mm:ss
-#
-# If dont_abort true then return undef if date is malformed.
+# matches current time (or another_date).  Any fraction of a day
+# counts -1 or +1.  Expected dates format is aaaa/mm/dd hh:mm:ss
 
 sub elapsed_days {
 
   my $date = shift;
+  my $other = shift;
 
-  (!check_date($date)) and return undef;
-
-  $date = timelocal(substr($date,17,2),substr($date,14,2),substr($date,11,2),
-                    substr($date,8,2),substr($date,5,2)-1,substr($date,0,4)-1900);
+  $date = check_date($date);
+  (!$date) and return undef;
   
-  my $delta = time - $date;
+  my $delta;
+  
+  if (defined($other)) {
+    $other = check_date($other);
+    (!$other) and return undef;
+    $delta = $other - $date;
+  }
+  else{
+    $delta = time() - $date;
+  }
 
   if ($delta > 0) {
     return ceil($delta / 86400);
@@ -238,9 +247,29 @@ sub br_date {
 
 
 ################################################################################
-# check_date($date)
+# string br_date_plus($date, $days)
 #
+# Add days to date in aaaa/mm/dd hh:mm:ss format and convert to dd/mm/aaaa hh:mm:ss
+
+sub br_date_plus {
+  
+  my $date = shift;
+  my $days = shift;
+
+  $date = timelocal(substr($date,17,2),substr($date,14,2),substr($date,11,2),
+		    substr($date,8,2),substr($date,5,2)-1,substr($date,0,4)-1900);
+  
+  return br_date(format_epoch($days*86400+$date));
+}
+
+
+
+################################################################################
+# check_date($date)
+# 
 # Check whether a date in format aaaa/mm/dd hh:mm:ss is valid.
+# Return 0 if not valid or the number of seconds elapsed since the
+# Epoch, 1970-01-01 00:00:00 +0000 (UTC).
 
 sub check_date {
   
@@ -254,10 +283,9 @@ sub check_date {
     ($2 == 2 and $3 > 29) and return 0;
     ($2 == 2 and $3 == 29 and !($1 % 4 == 0 && ($1 % 100 != 0 || $1 % 400 == 0))) and return 0;
 
-    return 1;
+    return scalar timelocal($6,$5,$4,$3,$2-1,$1-1900);
 }
 
-  
 
 
 ################################################################################
@@ -363,11 +391,11 @@ sub load_keys {
 ################################################################################
 # string load_file($uid, $assignment, $file, $is_pre, $limit)
 #
-# Load a limited number of characters from a file into a string.
+# Load a limited number of characters from $file into a string.
 #
 # file     The name of the file. 
 # is_pre   If true, substitutes < by &lt; > by &gt; and & by &amp;.  May be undef.
-# limit    The maximum number of characters to write. If undef or 0, load the whole file.
+# limit    The maximum number of characters to read. If undef or 0, read the whole file.
 #
 # uid and assignment are used only to write to the log in case of failure.
 #
@@ -673,6 +701,10 @@ sub histogram {
   
   ### Print x values:
   my @x = sort {$a cmp $b} keys(%$data1);
+  for (my $i=0; $i<@x; $i++) {
+    $x[$i] = br_date($x[$i]);
+  }
+  
   my $filled_x = $x_zero;
   $aux1 = $max_x;
   my $i = 1;
