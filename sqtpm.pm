@@ -145,7 +145,7 @@ sub add_to_log {
   flock($LOG,LOCK_EX);
   seek($LOG,0,2);
 
-  printf $LOG "%s %s:%s %s %s %s\n",format_epoch(time),$ENV{REMOTE_ADDR},$ENV{REMOTE_PORT},
+  printf $LOG "%s %s port %s %s %s %s\n",format_epoch(time),$ENV{REMOTE_ADDR},$ENV{REMOTE_PORT},
 	      $uid,$assign,encode("ASCII",$mess);
 
   flock($LOG,LOCK_UN);
@@ -553,9 +553,14 @@ sub abort {
   
   print '<hr></form></div></div></body></html>';
 
-  if ($assign && -d "$assign/_${uid}_tmp_") {
-    unlink glob "$assign/_${uid}_tmp_/*";
-    rmdir "$assign/_${uid}_tmp_";
+  if ($assign && -e "$assign/_${uid}_tmp_") {
+    if (-d "$assign/_${uid}_tmp_") {
+      unlink glob "$assign/_${uid}_tmp_/*";
+      rmdir "$assign/_${uid}_tmp_";
+    }
+    else {
+      unlink("$assign/_${uid}_tmp_");
+    }
   }
 
   add_to_log($uid,$assign,$mess);

@@ -87,5 +87,6 @@ v10
  that further refines system and assignment configurations.
 -directive hide-grades was added. 
 -directive limits was added.
--added gcc-ld-args and g++-ld-args for handling -static better.
+-added gcc-ld-args and g++-ld-args for properly handling -static.
 -moved all encodings to utf-8. ISO-8859-1 was there yet from the older versions.
+-changed timeout implementation.

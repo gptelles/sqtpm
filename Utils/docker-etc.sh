@@ -18,20 +18,54 @@ umask 0000
 
 tag=${input/.in/}
 
+pid=$$
+tpid=0  # Timer PID
+cpid=0
+timeout=$((cputime+3))
+
+
+the_timeout () {
+    trap - SIGALRM
+    pkill -9 -P $cpid
+    pkill -9 -P $tpid
+    echo "152" >$tag.run.st
+    exit 1
+}
+
+
+trap "the_timeout" SIGALRM
+
+
+if [[ $lang  == "Python3" && $progname == "elf.tar" ]]; then
+  tar -xf elf.tar
+fi
+
+
+(sleep $timeout; kill -SIGALRM $pid) &
+tpid=$!
+
+
 if [[ $lang  == "Python3" ]]; then 
   if [[ $progname == "elf.tar" ]]; then
-    tar -xf elf.tar
-    bash -c "ulimit -c 0 -t $cputime; python3 -B main.py <$input 1>$tag.run.out 2>$tag.run.err; echo \$? >$tag.run.st"
+    (ulimit -c 0 -t $cputime; python3 -B main.py <$input 1>$tag.run.out 2>$tag.run.err; echo $? >$tag.run.st) &
   else
-    bash -c "ulimit -c 0 -t $cputime; python3 -B $progname <$input 1>$tag.run.out 2>$tag.run.err; echo \$? >$tag.run.st"
+    (ulimit -c 0 -t $cputime; python3 -B $progname <$input 1>$tag.run.out 2>$tag.run.err; echo $? >$tag.run.st) &
   fi      
 
 elif [[ $lang  == "Octave" ]]; then  
-  bash -c "ulimit -c 0 -t $cputime; octave-cli $progname <$input 1>$tag.run.out 2>$tag.run.err; echo \$? >$tag.run.st"
+  (ulimit -c 0 -t $cputime; octave-cli $progname <$input 1>$tag.run.out 2>$tag.run.err; echo $? >$tag.run.st) &
 
 elif [[ $lang  == "Java" ]]; then 
-  bash -c "ulimit -c 0 -t $cputime; java -jar $progname <$input 1>$tag.run.out 2>$tag.run.err; echo \$? >$tag.run.st"
+  (ulimit -c 0 -t $cputime; java -jar $progname <$input 1>$tag.run.out 2>$tag.run.err; echo $? >$tag.run.st) &
 
 else
-  bash -c "ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; ./elf <$input 1>$tag.run.out 2>$tag.run.err; echo \$? >$tag.run.st"
+  (ulimit -c 0 -t $cputime -v $virtmem -s $stkmem; ./elf <$input 1>$tag.run.out 2>$tag.run.err; echo $? >$tag.run.st) &
 fi
+
+cpid=$!
+
+wait $cpid
+trap - SIGALRM
+pkill -9 -P $tpid
+
+exit 0

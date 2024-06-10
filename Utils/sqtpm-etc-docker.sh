@@ -4,7 +4,7 @@
 # This file is part of sqtpm.
 
 sharedd='/fs/sqtpm'
-container=d90e61613d76
+container=bbe3bca6aa2e
 
 uid=$1
 assign=$2
@@ -102,7 +102,10 @@ for inputf in *.in; do
     
   docker exec -u sqtpm -w /home/sqtpm $container /home/sqtpm/docker-etc.sh $dir $inputf $lang $progname $thecputime $thevirtmem $thestkmem
 
-  \cp $tmpd/$tag.run.{out,err,st} $userd
+  \cp $tmpd/$tag.run.st $userd
+  \cp $tmpd/$tag.run.out $userd
+  \cp $tmpd/$tag.run.err $userd
+  
   \rm -rf $tmpd/*
 done
 

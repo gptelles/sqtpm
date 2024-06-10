@@ -4,14 +4,15 @@
 
 pwd
 
-pass=`ls -1 *.pass`
+# pass=`ls -1 *.pass`
+pass="$1"
 
 for d in */; do 
   cd "$d"
 
   if [[ -e 'config' ]]; then
     for l in $pass; do 
-      ln -s ../$l .
+       ln -s ../$l .
     done 
   fi
 

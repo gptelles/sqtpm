@@ -2,12 +2,12 @@
 
 <p>
 Para enviar um trabalho, selecione a linguagem e os arquivos.  Depois
-clique no bot„o "Enviar".
+clique no bot√£o "Enviar".
 
 <p>
-Os nome dos arquivos que ser„o enviados n„o devem ter acentos,
-espaÁos, tabulaÁıes, barras ou outros sÌmbolos.  Use apenas
-letras, dÌgitos, hÌfens, sublinhados e pontos no nome dos arquivos.
+Os nome dos arquivos que ser√£o enviados n√£o devem ter acentos,
+espa√ßos, tabula√ß√µes, barras ou outros s√≠mbolos.  Use apenas
+letras, d√≠gitos, h√≠fens, sublinhados e pontos no nome dos arquivos.
 
 <p>
 Os nomes dos arquivos devem ter sufixos de acordo com a linguagem:
@@ -24,49 +24,56 @@ Os nomes dos arquivos devem ter sufixos de acordo com a linguagem:
 </ul>
 
 <p>
-Para as linguagens C, C++, Java e Python3 a submiss„o pode ter um
-n˙mero qualquer de arquivos, a menos que haja uma restriÁ„o indicada
-no enunciado do trabalho.
+A compila√ß√£o de programas em C √© feita pelo gcc com os par√¢metros:
 
+<pre>
+-Wall -Wextra -O3 -std=c17 -pedantic 
+</pre>
+
+<p>
+Para as linguagens C, C++, Java e Python3 a submiss√£o pode ter um
+n√∫mero qualquer de arquivos, a menos que haja uma restri√ß√£o indicada
+no enunciado do trabalho.
+  
 <ul>
 <li> 
-Em Java, a funÁ„o main deve estar em uma classe chamada Main; logo
+Em Java, a fun√ß√£o main deve estar em uma classe chamada Main; logo
 deve haver um arquivo chamado Main.java.
 <li>
-Em Python3, se houver mais de um arquivo ent„o um deles deve se chamar
+Em Python3, se houver mais de um arquivo ent√£o um deles deve se chamar
 main.py.
 </ul>
 
 <p>
-Para as linguagens Octave, Pascal e Fortran a submiss„o deve ter apenas um arquivo.
+Para as linguagens Octave, Pascal e Fortran a submiss√£o deve ter apenas um arquivo.
 
 <p>
-O programa ser· avaliado pela verificaÁ„o do resultado da execuÁ„o com
-alguns casos-de-teste.  Cada caso-de-teste ser· executado
-redirecionando um arquivo para a entrada padr„o e redirecionando a
-saÌda para outro arquivo, com um comando da forma
+O programa ser√° avaliado pela verifica√ß√£o do resultado da execu√ß√£o com
+alguns casos-de-teste.  Cada caso-de-teste ser√° executado
+redirecionando um arquivo para a entrada padr√£o e redirecionando a
+sa√≠da para outro arquivo, com um comando da forma
 
 <pre>
 programa &lt;caso.in &gt;execucao.out
 </pre>
 
-e depois comparando a saÌda com a saÌda esperada usando <tt>diff</tt> 
+e depois comparando a sa√≠da com a sa√≠da esperada usando <tt>diff</tt> 
 
 <pre>
 diff execucao.out caso.out
 </pre>
 
-e usando <tt>diff</tt> ignorando a formataÁ„o
+e usando <tt>diff</tt> ignorando a formata√ß√£o
 
 <pre>
 diff -q -b -B -i -w execucao.out caso.out
 </pre>
 
-Se houver algum caso-de-teste aberto, o sqtpm exibir· a entrada, a
-saÌda produzida pelo programa e a saÌda esperada.
+Se houver algum caso-de-teste aberto, o sqtpm exibir√° a entrada, a
+sa√≠da produzida pelo programa e a sa√≠da esperada.
 
-Em alguns trabalhos a saÌda correta n„o È ˙nica.  Nesses casos o sqtpm
-exibir· apenas a entrada e a saÌda produzida pelo programa para os
+Em alguns trabalhos a sa√≠da correta n√£o √© √∫nica.  Nesses casos o sqtpm
+exibir√° apenas a entrada e a sa√≠da produzida pelo programa para os
 casos-de-teste abertos.
 
 <hr>

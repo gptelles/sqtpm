@@ -85,7 +85,6 @@ if (!defined($sid)) {
       home(1);
     }
     else {
-      # Sleep for a while, so trying a password will take longer:
       sleep(3);
       abort_login($uid,'Dados incorretos.');
     }
@@ -309,7 +308,7 @@ sub home {
       
       # Assignment state:
       if ($state == 1) {
-	$tab .= '<td><font color="DarkRed">config</font></td>'
+	$tab .= '<td><font color="DarkRed">inconsistente</font></td>'
       }
       elsif ($state == 2) {
 	$tab .= '<td><font color="DarkOrange">fechado</font></td>';
@@ -413,7 +412,7 @@ sub home {
 	  $tab .= '<a href="javascript:;" ' .
 	    "onclick=\"wrap('asc','$groups[$j]');\">$groups[$j]</a>&nbsp; ";
 	}
-	$tab .= '';#'</p>';
+	$tab .= ''; #'</p>';
       }
     }
 
@@ -543,7 +542,8 @@ sub show_statement {
   }
 
   if (exists($cfg{deadline})) {
-    print $p ? '<br>' : '<p>', "Data limite para envio: ", br_date($cfg{deadline});
+    print $p ? '<br>' : '<p>';
+    print "Data limite para envio: ", br_date($cfg{deadline});
   
     if ($ast{$assign} == 3 || $ast{$assign} == 13) {
       print ' (aberto)';
@@ -564,10 +564,34 @@ sub show_statement {
     }
   
     ($cfg{penalty} < 100) and print "<br>Penalidade por dia de atraso: $cfg{penalty}\%";
-    $p = 1;
   }
 
-  print $p ? '<br>' : '<p>', "Número máximo de envios: ", $cfg{tries};
+
+  my @nf = split(/,/,$cfg{files});
+  my @reqfiles = ();
+
+  if (exists($cfg{filenames})) {
+    if (exists($cfg{filenames})) {
+      @reqfiles = split(/ +/,$cfg{filenames});
+      for (my $i=0; $i<@reqfiles; $i++) {
+	$reqfiles[$i] =~ s/\{uid\}/$uid/;
+	$reqfiles[$i] =~ s/\{assign\}/$assign/;
+      }
+      
+      (@reqfiles > $nf[0]) and ($nf[0] = scalar @reqfiles);
+      (@reqfiles > $nf[1]) and ($nf[1] = scalar @reqfiles);
+    }
+  }
+
+  
+  print "<p>Número máximo de envios: ", $cfg{tries};
+  
+  print '<br>Número de arquivos a enviar: ',
+    $nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]";
+  
+  (@reqfiles) and print "<br>Nomes dos arquivos a enviar: @reqfiles<br>";
+  $p = 1;
+
   
   my $tryed = 0;
   my $tryed_at = undef;
@@ -598,35 +622,20 @@ sub show_statement {
   }
   
   $p = 0;
-  if ($cfg{languages} !~ / /) {
-    my @nf = split(/,/,$cfg{files});
 
-    my @sf;
-    if (exists($cfg{filenames})) {
-      @sf = split(/ +/,$cfg{filenames});
-      for (my $i=0; $i<@sf; $i++) {
-	$sf[$i] =~ s/\{uid\}/$uid/;
-	$sf[$i] =~ s/\{assign\}/$assign/;
-      }
-      
-      (@sf > $nf[0]) and ($nf[0] = scalar @sf);
-      (@sf > $nf[1]) and ($nf[1] = scalar @sf);
-    }
-    
-    print '<p>Número de arquivos a enviar: ',
-      $nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]";
-    
-    (@sf) and print "<br>Nomes dos arquivos a enviar: @sf<br>";
-    $p = 1;
-  }
-  
   if (-f "$assign/casos-de-teste.tgz") {
-    print $p ? '<br>' : '<p>',
-      'Casos-de-teste abertos: <a href="javascript:;" ',
+    print '<p>Casos-de-teste abertos: <a href="javascript:;" ',
       "onclick=\"wrap('dwn','$assign','','casos-de-teste.tgz')\";>casos-de-teste.tgz</a>";
     $p = 1;
   }
   
+  if ($utype ne 'aluno' && -f "$assign/casos-de-teste-todos.tgz") {
+    print $p ? '<br>' : '<p>',
+      'Casos-de-teste: <a href="javascript:;" ',
+      "onclick=\"wrap('dwn','$assign','','casos-de-teste-todos.tgz')\";>",'casos-de-teste.tgz</a>';
+    $p = 1;
+  }
+
   if (-f "$assign/include.tgz") {
     print $p ? '<br>' : '<p>',
       'Arquivos auxiliares: <a href="javascript:;" ',
@@ -852,8 +861,13 @@ sub show_grades_table {
       $tab = '<p><b>Não há usuários em $grp.</p>';
     }
     else {
+      # Load configs:
       (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
-      my %cfg = (%sys_cfg, load_keys_values("$assign/config"));
+
+      my $cfgf = "$assign/config-$grp";
+      my %cfg = (!-e $cfgf ?
+		 (%sys_cfg,load_keys_values("$assign/config")) :
+		 (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
 
       # Get users grades and build a hash having an array of student ids for each language:
       %grades = ();
@@ -902,7 +916,7 @@ sub show_grades_table {
       $tab .= '</ul></td><td><ul>';
       
       if (exists($cfg{deadline})) {
-	$tab .= "<li>deadline: " . br_date($cfg{deadline});
+	$tab .= "<li>data limite: " . br_date($cfg{deadline});
       }
       if ($cfg{'keep-open'} > 0) {
 	my $d = br_date_plus($cfg{deadline},$cfg{'keep-open'});
@@ -939,8 +953,7 @@ sub show_grades_table {
       if ($cfg{backup} eq 'on') {
 	%gusers = map { $_ => 1 } @users; # %gusers is used by wanted_hist.
 	@ggrades = ();                    # @ggrades is modified by wanted_hist.    
-	$st = 0;                          # $st and $dl are used by wanted_hist.
-	$dl = 0;
+	$st = 0; $dl = 0;                 # $st and $dl are used by wanted_hist.
 	
 	find(\&wanted_hist,"$assign");
 	
@@ -996,9 +1009,9 @@ sub show_grades_table {
 	  }
 
 	  my ($y, $m, $d) = split(/\//,$first);
-	  $first = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
+	  $first = timelocal(0, 0, 12, $d, $m-1, $y-1900);
 	  ($y, $m, $d) = split(/\//,$last);
-	  $last = timelocal(0, 0, 12, $d, $m - 1, $y - 1900);
+	  $last = timelocal(0, 0, 12, $d, $m-1, $y-1900);
 	  
 	  my $curr = $first;
 	  while ($curr le $last) {
@@ -1199,9 +1212,7 @@ sub submit_assignment {
   
   my $assign = param('submassign');
   my $language = param('language');
-
   my @uploads = param('source');
-  @uploads = grep(/\S+/,@uploads);
 
   my $dryrun = 0;
   
@@ -1266,13 +1277,14 @@ sub submit_assignment {
   if ($utype ne 'prof' and ! grep(/$language/,split(/\s+/,$cfg{languages}))) {
     block_user($uid,$upassf,"submit : $assign não pode ser enviado em $language.");
   }
-  
-  # Check the number of uploading files and their names: 
+ 
+  # Check the number of files to be uploaded and their names: 
   my %exts = ('C'=>'(c|h)','C++'=>'(cpp|h)','Fortran'=>'(f|F)','Pascal'=>'pas',
 	      'Python3'=>'py','Java'=>'java','Octave'=>'m','PDF'=>'pdf');
-  
-  my @sources = grep(/\.$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
 
+  @uploads = grep(/\S+/,@uploads);
+  my @sources = grep(/\.$exts{$language}$/ && /^[0-9a-zA-Z\_\.\-]+$/,@uploads);  
+  
   # Octave, Fortran and Pascal are limited to a single source file:
   if ($language eq 'Octave' || $language eq 'Fortran' || $language eq 'Pascal') {
     ($cfg{files} = '1,1');
@@ -1305,32 +1317,35 @@ sub submit_assignment {
   my $mess = '';
   my %names = ();
   my @nf = split(/,/,$cfg{files});
-  my @sf;
-  
+  my @reqfiles;
+
   if (exists($cfg{filenames})) {
-    @sf = split(/ +/,$cfg{filenames});
-    for (my $i=0; $i<@sf; $i++) {
-      $sf[$i] =~ s/\{uid\}/$uid/;
-      $sf[$i] =~ s/\{assign\}/$assign/;
-      $names{$sf[$i]} = 1;
+    @reqfiles = split(/ +/,$cfg{filenames});
+    
+    for (my $i=0; $i<@reqfiles; $i++) {
+      $reqfiles[$i] =~ s/\{uid\}/$uid/;
+      $reqfiles[$i] =~ s/\{assign\}/$assign/;
+      $names{$reqfiles[$i]} = 1;
     }
-    for (my $i=0; $i<@uploads; $i++) {
-      delete($names{$uploads[$i]});
+    
+    for (my $i=0; $i<@sources; $i++) {
+      delete($names{$sources[$i]});
     }
 
-    (@sf > $nf[0]) and ($nf[0] = scalar @sf);
-    (@sf > $nf[1]) and ($nf[1] = scalar @sf);
+    (@reqfiles > $nf[0]) and ($nf[0] = scalar @reqfiles);
+    (@reqfiles > $nf[1]) and ($nf[1] = scalar @reqfiles);
   }
 
+
   if (@sources < $nf[0] || @sources > $nf[1]) {
-    $mess .= 'Envie ' .
+    $mess = 'Envie ' .
       ($nf[0]==$nf[1] ?
        ($nf[0]==1 ? "1 arquivo." : "$nf[1] arquivos.") :
        "de $nf[0] a $nf[1] arquivos.") . '<p>';
   }
-   
+
   if (keys(%names) > 0) {
-    $mess .= "Envie arquivos com nomes: @sf.<p>";
+    $mess = "Envie arquivos com nomes: @reqfiles.<p>";
   }
 
   if ($mess) {
@@ -1338,7 +1353,8 @@ sub submit_assignment {
 	  "<a href=\"javascript:;\" onclick=\"wrap('hlp','envio')\">página</a>.";
     abort($uid,$assign,"Número ou nomes de arquivos incorretos",1);
   }
-  
+
+
   # Get the number of previous submissions from an existing dry-run or report file:
   my $tryed = 0;
   my $tryed_at = undef;
@@ -1368,7 +1384,7 @@ sub submit_assignment {
 
   ### Create a temp directory:
   my $userd = "$assign/_${uid}_tmp_";
-  mkdir($userd) or abort($uid,$assign,"submit : mkdir " . cwd() . " $userd : $!");
+  mkdir($userd) or abort($uid,$assign,"submit : mkdir $userd : $!");
   
   my $now = format_epoch(time);
 
@@ -1391,12 +1407,12 @@ sub submit_assignment {
     }
   }
   else {
-    $reph .= "<br>$uid: envios sem restrição de prazo.";
+    $reph .= "<br>$uid: envio sem restrição de prazo ou de quantidade.";
   }
   
   $reph .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
   $reph .= "<br>Linguagem: $language";
-  $reph .= (@uploads == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
+  $reph .= (@sources == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
 
   ### Get uploaded source files and pdfs:
   @sources = ();
@@ -1404,6 +1420,7 @@ sub submit_assignment {
   my @fh = upload('source');
 
   for (my $i=0; $i<@fh; $i++) {
+    (!$uploads[$i]) and next;
     ($uploads[$i] !~ /\.$exts{$language}$/ || $uploads[$i] !~ /^[a-zA-Z0-9_\.\-]+$/) and next;
 
     open(my $SOURCE,'>',"$userd/$uploads[$i]") or 
@@ -1728,6 +1745,9 @@ sub submit_assignment {
 	  elsif ($status == 9) {
 	    $rep .= 'limite de tempo ou memória excedido.<br>';
 	  }
+	  elsif ($status == 24) {
+	    $rep .= 'limite de tempo excedido.<br>';
+	  }
 	  elsif ($status == 8) {
 	    $rep .= 'erro de ponto flutuante.<br>';
 	  }
@@ -1945,7 +1965,7 @@ sub submit_assignment {
   else {
     # Dry-run. The previous submission will prevail, save dryrun.rep in it:
     if (!-d $prevd) {
-      mkdir($prevd) or abort($uid,$assign,"submit dry-run : mkdir " . cwd() . " $prevd : $!");
+      mkdir($prevd) or abort($uid,$assign,"submit dry-run : mkdir $prevd : $!");
     }
     
     my $repf = "$prevd/$uid.dryrun.rep";
@@ -2144,6 +2164,8 @@ sub wanted_hist {
 
     my %rep = load_rep_data($file);
 
+    (!exists($rep{at})) and abort("","","wanted_list : $file");
+    
     ($st && $rep{at} lt $st) and return;
     ($dl && $rep{at} gt $dl) and return;
     
