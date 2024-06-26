@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 # This file is part of sqtpm 10.
-# Copyright 2003-2022 Guilherme P. Telles.
+# Copyright 2003-2024 Guilherme P. Telles.
 # sqtpm is distributed under the terms of WTFPL v2.
 
 use CGI qw(:standard -no_xhtml);
@@ -222,7 +222,7 @@ sub home {
   if (!defined($scr)) {
     %sys_cfg = load_keys_values('sqtpm.cfg');
     
-    # Grab assignments for the user:
+    # Summon assignments for the user:
     opendir(my $DIR,'.') or abort('','','home : opendir root : $!');
     my @assign = sort(grep
 		      {-d $_ && !/^\./ && -e "$_/config" && -l "$_/$upassf" && stat("$_/$upassf")} 
@@ -246,35 +246,9 @@ sub home {
     
     # Assignments table rows:
     for (my $i=0; $i<@assign; $i++) {
-
-      # Load configs:
-      my %cfg = ();
-      my $state = 0;
+      my %cfg = load_configs($assign[$i],$uid,$utype,$upassf,1);
+      my $state = %cfg ? assignment_state(\%cfg) : 1;
       
-      my %cfgw = load_keys_values("$assign[$i]/config",'=',1);
-      if (!%cfgw) {
-	%cfg = %sys_cfg;
-	$state = 1;
-      }
-      else {
-	%cfg = (%sys_cfg,%cfgw);
-      }
-      
-      if ($utype eq 'aluno') {
-	my $cfgf = "$assign[$i]/config-" . $upassf =~ s/.pass$//r;
-	if (-e $cfgf) {
-	  my %cfgg = load_keys_values($cfgf,'=',1);
-	  if (!%cfgg) {
-	    $state = 1;
-	  }
-	  else {
-	    %cfg = (%cfg,%cfgg);
-	  }
-	}
-      }
-
-      # State:
-      $state = assignment_state(\%cfg);
       $ast{$assign[$i]} = $state;
 
       # If the user is a student and the assignment is still closed or has an error, skip it:
@@ -314,14 +288,14 @@ sub home {
 	$tab .= '<td><font color="DarkOrange">fechado</font></td>';
       }
       elsif ($state == 3) {
-	$tab .= '<td><font color="MediumBlue">aberto</font></td>';
+	$tab .= '<td><font color="Teal">aberto</font></td>';
       }
       elsif ($state == 4) {
 	my $days = elapsed_days($cfg{deadline});
-	$tab .= "<td><font color=\"MediumBlue\">aberto (+$days)</font></td>";
+	$tab .= "<td><font color=\"Teal\">aberto (+$days)</font></td>";
       }
       elsif ($state == 5) {
-	$tab .= '<td><font color="Teal">dry-run</font></td>';
+	$tab .= '<td><font color="MediumBlue">dry-run</font></td>';
       }
       elsif ($state == 6) {
 	$tab .= '<td>encerrado</td>';
@@ -506,17 +480,12 @@ sub show_statement {
   # Check if the user is in the assignment:
   passf_in_assign($uid,$upassf,$assign);
 
-  # Load configs:
-  (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
+  # Configs and assignment state:
+  my %cfg = load_configs($assign,$uid,$utype,$upassf);
+  my $state = assignment_state(\%cfg);
 
-  my $cfgf = "$assign/config-" . $upassf =~ s/.pass$//r;
-  my %cfg = (!-e $cfgf ?
-	     (%sys_cfg,load_keys_values("$assign/config")) :
-	     (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
-
-  my %ast  = %{ $session->param('assign_states') };
-
-  $state = assignment_state(\%cfg);
+  # If state has changed, force reloading the home table:
+  my %ast = %{ $session->param('assign_states') };
   if ($ast{$assign} != $state) {
     $ast{$assign} = $state;
     $session->param('screen',undef);
@@ -544,17 +513,20 @@ sub show_statement {
   if (exists($cfg{deadline})) {
     print $p ? '<br>' : '<p>';
     print "Data limite para envio: ", br_date($cfg{deadline});
-  
-    if ($ast{$assign} == 3 || $ast{$assign} == 13) {
-      print ' (aberto)';
+
+    if ($ast{$assign} == 2) {
+      print ' (<font color="DarkOrange">fechado</font>)';
+    }
+    elsif ($ast{$assign} == 3 || $ast{$assign} == 13) {
+      print ' (<font color="Teal">aberto</font>)';
     }
     elsif ($ast{$assign} == 4 || $ast{$assign} == 14) {
       my $days = elapsed_days($cfg{deadline}); 
-      print " (aberto +$days)";
+      print " (<font color=\"Teal\">aberto +$days</font>)";
     }
     elsif ($ast{$assign} == 5 || $ast{$assign} == 15) {
-      print '<br><font color="Teal">dry-run: é possível enviar até ',
-	br_date_plus($cfg{deadline},$cfg{'keep-open'}),
+      print '<br><font color="MediumBlue">dry-run: é possível enviar até ',
+	br_date($cfg{'keep-open'}),
 	' mas sem substituir o último envio no prazo.</font>';
       $cfg{tries} += 10;
     }
@@ -567,6 +539,9 @@ sub show_statement {
   }
 
 
+  print "<p>Número máximo de envios: ", $cfg{tries};
+
+  
   my @nf = split(/,/,$cfg{files});
   my @reqfiles = ();
 
@@ -582,9 +557,6 @@ sub show_statement {
       (@reqfiles > $nf[1]) and ($nf[1] = scalar @reqfiles);
     }
   }
-
-  
-  print "<p>Número máximo de envios: ", $cfg{tries};
   
   print '<br>Número de arquivos a enviar: ',
     $nf[0] == $nf[1] ? "$nf[0]" : "entre $nf[0] e $nf[1]";
@@ -655,14 +627,12 @@ sub show_statement {
 	"onclick=\"toggleDiv('$aux[$i]');\">$aux[$i]</a>&nbsp;&nbsp;";
     }
 
-    my $d = br_date_plus($cfg{deadline},$cfg{'keep-open'});
-    
     print "<div id='configs' style='display:none' class='src'><b>diretivas correntes</b>";
     print "<pre class='prettyprint'>";
     print "languages: $cfg{languages}\n",
       "backup: $cfg{backup}\n",
       "grading: $cfg{grading}\n",
-      $cfg{'keep-open'} > 0 ? "keep-open: $cfg{'keep-open'} ($d)\n" : '',
+      exists($cfg{'keep-open'}) ? "keep-open: $cfg{'keep-open'}\n" : '',
       exists($cfg{'hide-grades'}) ? "hide-grades: $cfg{'hide-grades'}\n" : '',
       "cputime: $cfg{cputime} s, virtmem: $cfg{virtmem} kb, stkmem: $cfg{stkmem} kb\n",
       exists($cfg{'limits'}) ? "limits: $cfg{limits}\n" : '';
@@ -861,13 +831,8 @@ sub show_grades_table {
       $tab = '<p><b>Não há usuários em $grp.</p>';
     }
     else {
-      # Load configs:
-      (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
 
-      my $cfgf = "$assign/config-$grp";
-      my %cfg = (!-e $cfgf ?
-		 (%sys_cfg,load_keys_values("$assign/config")) :
-		 (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
+      my %cfg = load_configs($assign,$uid,$utype,$upassf);
 
       # Get users grades and build a hash having an array of student ids for each language:
       %grades = ();
@@ -918,9 +883,8 @@ sub show_grades_table {
       if (exists($cfg{deadline})) {
 	$tab .= "<li>data limite: " . br_date($cfg{deadline});
       }
-      if ($cfg{'keep-open'} > 0) {
-	my $d = br_date_plus($cfg{deadline},$cfg{'keep-open'});
-	$tab .= "<li>keep-open: $cfg{'keep-open'} ($d)";
+      if (exists($cfg{'keep-open'})) {
+	$tab .= '<li>keep-open: ' . br_date($cfg{'keep-open'});
       }
       $tab .= '</ul></td></tr></table>';
 
@@ -1225,19 +1189,8 @@ sub submit_assignment {
   # Check if the user is in the assignment:
   passf_in_assign($uid,$upassf,$assign);
 
-  # Load system, assignment and group configs:
-  (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
-
-  my (%cfg);
-  if ($utype eq 'aluno') {
-    my $cfgf = "$assign/config-" . $upassf =~ s/.pass$//r;
-    %cfg = (!-e $cfgf ?
-	    (%sys_cfg,load_keys_values("$assign/config")) :
-	    (%sys_cfg,load_keys_values("$assign/config"),load_keys_values($cfgf)));
-  }
-  else {
-    %cfg = (%sys_cfg, load_keys_values("$assign/config"));
-  }
+  # Configs:
+  my %cfg = load_configs($assign,$uid,$utype,$upassf);
 
   my $days = (exists($cfg{deadline}) ? elapsed_days($cfg{deadline}) : 0);
 
@@ -1400,9 +1353,10 @@ sub submit_assignment {
     ($cfg{penalty} < 100) and ($reph .= "<br>Penalidade por dia de atraso: $cfg{penalty}%");
   }
 
+  $reph .= "<p>Este envio: ${try}&ordm;, " . br_date($now);
   if ($utype eq 'aluno') {
     if ($dryrun) {
-      $reph .= '<br><font color="Teal">O prazo terminou. ' .
+      $reph .= '<br><font color="MediumBlue">O prazo para enviar terminou. ' .
 	'Este envio não substitui o último envio no prazo.</font>';
     }
   }
@@ -1410,7 +1364,6 @@ sub submit_assignment {
     $reph .= "<br>$uid: envio sem restrição de prazo ou de quantidade.";
   }
   
-  $reph .= "<br>Este envio: ${try}&ordm;, " . br_date($now);
   $reph .= "<br>Linguagem: $language";
   $reph .= (@sources == 1 ? "<br>Arquivo: " : "<br>Arquivos: ");
 
@@ -1725,16 +1678,13 @@ sub submit_assignment {
 	  (!-r $exec_out) and abort($uid,$assign,"submit : sem permissão $exec_out.");
 
 	  $failed{$case} = $casei;
-	  my $status;
+	  my $status = 9;
 	  
 	  if (open(my $STATUS,'<',"$exec_st")) {
 	    $status = <$STATUS>;
 	    chomp($status);
 	    $status -= 128;
 	    close($STATUS);
-	  }
-	  else {
-	    $status = 9;
 	  }
 
 	  $rep .= sprintf("%.02d: &nbsp;",$casei);
@@ -2044,7 +1994,7 @@ sub invoke_moss {
   # Check user type:
   ($utype ne 'prof') and block_user($uid,$upassf,"invoke_moss: $uid não é prof.");
 
-  # Load configs, adjust language:
+  # Load cfg, adjust language:
   (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
 
   $lang = lc($lang);
@@ -2376,7 +2326,7 @@ sub assignment_state {
 
   my $cfg = shift;
   my $state = 0;
-  
+
   if (exists($cfg->{startup})) {
     my $days = elapsed_days($cfg->{startup});
     if (!defined($days)) {
@@ -2386,11 +2336,16 @@ sub assignment_state {
       $state = 2; # closed
     }
   }
+
+  if ($state == 0 && exists($cfg->{'keep-open'}) &&
+      !defined(elapsed_days($cfg->{'keep-open'}))) {
+    $state = 1; # config error
+  }
   
   if ($state == 0) {
     if (exists($cfg->{deadline})) {
       my $days = elapsed_days($cfg->{deadline});
-      
+            
       if (!defined($days)) {
 	$state = 1; # config error
       }
@@ -2400,7 +2355,7 @@ sub assignment_state {
       elsif ($days*$cfg->{penalty} < 100) {
 	$state = 4; # delayed
       }
-      elsif ($days-ceil(100/$cfg->{penalty})+1 <= $cfg->{'keep-open'} &&
+      elsif (exists($cfg->{'keep-open'}) && elapsed_days($cfg->{'keep-open'}) <= 0 &&
 	     $cfg->{languages} !~ /PDF/) {
 	$state = 5; # dry-run;
       }
@@ -2420,3 +2375,45 @@ sub assignment_state {
 
   return $state;
 }
+
+
+
+################################################################################
+# hash load_configs($assign, $uid, $utype, $upassf, $dont_abort)
+#
+# Load system, assignment and group config files.
+#
+# If an error occurs at file opening then abort() will be invoked by
+# load_keys_values(), but if dont_abort is true then () is returned.
+
+sub load_configs {
+  
+  my $assign = shift;
+  my $uid = shift;
+  my $utype = shift;
+  my $upassf = shift;
+  my $dont_abort = shift;
+
+  (!%sys_cfg) and (%sys_cfg = load_keys_values('sqtpm.cfg'));
+
+  my (%cfga, %cfgg, %cfg);
+  
+  %cfga = load_keys_values("$assign/config",'=',$dont_abort);
+  (!%cfga) and return ();
+  %cfg = (%sys_cfg,%cfga);
+
+  if ($utype eq 'aluno') {
+    my $file = "$assign/config-" . $upassf =~ s/.pass$//r;
+    if (-e $file) {
+      %cfgg = load_keys_values($file,'=',$dont_abort);
+      (!%cfgg) and return ();
+      %cfg = (%cfg,%cfgg);
+    }
+    
+    (exists($cfg{"startup-$uid"})) and ($cfg{startup} = $cfg{"startup-$uid"});
+    (exists($cfg{"deadline-$uid"})) and ($cfg{deadline} = $cfg{"deadline-$uid"});
+  }
+
+  return %cfg;
+}
+

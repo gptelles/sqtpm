@@ -1,5 +1,5 @@
 # This file is part of sqtpm 10.
-# Copyright 2003-2022 Guilherme P. Telles.
+# Copyright 2003-2024 Guilherme P. Telles.
 # sqtpm is distributed under WTFPL v2.
 
 package sqtpm;
@@ -173,7 +173,7 @@ sub format_epoch {
 # int elapsed_days($date, $another_date)
 #
 # Return the integral number of days elapsed from date to the current
-# time or to another date (if defined).
+# time or to another_date (if defined).
 #
 # Return undef if date (or another_date) is malformed.
 #

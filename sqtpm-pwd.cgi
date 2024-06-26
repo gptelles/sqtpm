@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 # This file is part of sqtpm 10.
-# Copyright 2003-2022 Guilherme P. Telles.
+# Copyright 2003-2024 Guilherme P. Telles.
 # sqtpm is distributed under the terms of WTFPL v2.
 
 use CGI qw(:standard -no_xhtml);
@@ -13,6 +13,11 @@ use File::Basename;
 use lib dirname(__FILE__);
 use sqtpm;
 
+# If there is an offline file, show a notice screen:
+if (-f 'offline') {
+  offline();
+  exit(0);
+}
 
 if (request_method() eq 'POST') {
   setpasswd();
@@ -23,6 +28,24 @@ else {
 
 exit(0);
 
+
+
+
+################################################################################
+sub offline {
+
+  print header();
+  print start_html(-title => 'sqtpm', 
+		   -style => {-src=>['sqtpm.css']},
+		   -Cache_Control => 'public',
+		   -head => [Link({-rel=>'icon',-type=>'image/png',-href=>'./icon.png'}),
+			    meta({-name=>'robots',-content=>'noindex'}),
+			    meta({-name=>'googlebot',-content=>'noindex'})]);
+
+  print '<div class="f85"><h1>sqtpm</h1>O sqtpm está indisponível no momento.<hr></div>';
+
+  print end_html();
+}
 
 
 ################################################################################
