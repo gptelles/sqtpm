@@ -1005,7 +1005,7 @@ sub show_grades_table {
 	  $tab .= '<td valign=\'top\'><table><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<img src="data:image/png;base64,' .
 	    encode_base64(histogram($size<25 ? 500 : $size*20,360,\%freq,\%freq100)) . '">' .
-	    '<p>Envios e envios 100% (verde) por dia.';
+	    '<p>Envios e envios com 100% (verde) por dia.';
 
 	  $tab .= '</td></tr><tr><td style="border:0;padding: 0px 0px 0px 20px">' .
 	    '<br><img src="data:image/png;base64,' .

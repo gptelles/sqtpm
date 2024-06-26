@@ -80,7 +80,7 @@ v10
 -added Octave, which triggered the addition of another argument to sqtpm-etc.
 -python3-args option dropped.
 -Moss submission link was split into a link per language.
--Flags were added to the head of sqtpm.cgi to enable/diasable ordering
+-Flags were added at the head of sqtpm.cgi to enable/diasable ordering
  users in grades tables and breaking grades tables in columns.
 -offline was added.
 -added a configuration file for an assignment and group combination
